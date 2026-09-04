@@ -206,6 +206,8 @@ pub mod geometry_builder;
 mod math_utils;
 mod monotone;
 mod stroke;
+mod stroke_arcs;
+mod stroke_arcs_mesh;
 
 #[cfg(test)]
 #[rustfmt::skip]
@@ -341,7 +343,7 @@ pub struct StrokeOptions {
 
     /// See the SVG specification.
     ///
-    /// Must be greater than or equal to 1.0.
+    /// Must be greater than or equal to 0.0.
     /// Default value: `StrokeOptions::DEFAULT_MITER_LIMIT`.
     pub miter_limit: f32,
 
@@ -353,10 +355,10 @@ pub struct StrokeOptions {
 }
 
 impl StrokeOptions {
-    /// Minimum miter limit as defined by the SVG specification.
+    /// Minimum miter limit as defined by SVG 2.
     ///
-    /// See [StrokeMiterLimitProperty](https://svgwg.org/specs/strokes/#StrokeMiterlimitProperty)
-    pub const MINIMUM_MITER_LIMIT: f32 = 1.0;
+    /// See [stroke-miterlimit](https://www.w3.org/TR/SVG2/painting.html#StrokeMiterlimitProperty)
+    pub const MINIMUM_MITER_LIMIT: f32 = 0.0;
     /// Default miter limit as defined by the SVG specification.
     ///
     /// See [StrokeMiterLimitProperty](https://svgwg.org/specs/strokes/#StrokeMiterlimitProperty)
@@ -683,7 +685,14 @@ fn test_with_miter_limit() {
 }
 
 #[test]
+fn test_with_zero_miter_limit() {
+    let stroke_options = StrokeOptions::default().with_miter_limit(0.0);
+
+    assert_eq!(stroke_options.miter_limit, 0.0);
+}
+
+#[test]
 #[should_panic]
 fn test_with_invalid_miter_limit() {
-    let _ = StrokeOptions::default().with_miter_limit(0.0);
+    let _ = StrokeOptions::default().with_miter_limit(-0.1);
 }

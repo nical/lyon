@@ -2,6 +2,9 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 
+mod arcs;
+use arcs::arcs_tess;
+
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::Point;
 use lyon::path::iterator::PathIterator;
@@ -259,4 +262,4 @@ benchmark_group!(
     flattening_03_logo_builder
 );
 
-benchmark_main!(fill_tess, fill_events, stroke_tess, flattening);
+benchmark_main!(fill_tess, fill_events, stroke_tess, flattening, arcs_tess);

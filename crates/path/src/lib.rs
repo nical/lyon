@@ -203,6 +203,10 @@ pub enum LineJoin {
     /// The bevel shape is a triangle that fills the area between the two stroked
     /// segments.
     Bevel,
+    /// Extend the outer stroke edges with arcs derived from endpoint curvature.
+    ///
+    /// See the [SVG 2 join construction](https://www.w3.org/TR/2018/CR-SVG2-20181004/painting.html#LineJoinShape).
+    Arcs,
 }
 
 /// The positive or negative side of a vector or segment.

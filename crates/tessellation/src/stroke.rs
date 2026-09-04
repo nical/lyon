@@ -12,6 +12,11 @@ use crate::path::private::DebugValidator;
 use crate::path::{
     AttributeStore, Attributes, EndpointId, IdEvent, PathEvent, PathSlice, PositionStore, Winding,
 };
+use crate::stroke_arcs::{
+    self, JoinConstruction, JoinInput, ParallelRectangleJoin, Point64, RadialClipJoin,
+    ResolvedArcsJoin, SegmentEnd, TurnSide, Vector64,
+};
+use crate::stroke_arcs_mesh::{ArcsMesh, ArcsOutput, ValidatedFan};
 use crate::{
     LineCap, LineJoin, Side, SimpleAttributeStore, StrokeGeometryBuilder, StrokeOptions,
     TessellationError, TessellationResult, VertexId, VertexSource,
@@ -35,6 +40,29 @@ macro_rules! nan_check {
 // It would be good to spend some time simplifying it.
 
 /// A Context object that can tessellate stroke operations for complex paths.
+///
+/// ## Arcs joins
+///
+/// [`LineJoin::Arcs`] uses endpoint tangents and curvature from the original
+/// quadratic or cubic segments, before flattening. It adjusts disjoint support
+/// circles and clips the resulting join using the SVG 2 miter limit.
+///
+/// Pass the original path to preserve curvature. A pre-flattened path contains
+/// only lines, so its arcs joins behave like miter-clip joins. Elliptical arcs
+/// converted to Beziers use the curvature of those Beziers.
+///
+/// The SVG 2 excessive-curvature rule selects round joins. Numerically
+/// degenerate inputs or joins that cannot be triangulated also use round joins.
+/// Variable-width strokes use the width at the join; they do not account for
+/// derivatives of the width profile when constructing offset supports.
+///
+/// ```
+/// use lyon_tessellation::{LineJoin, StrokeOptions};
+/// let options = StrokeOptions::default()
+///     .with_line_join(LineJoin::Arcs)
+///     .with_line_width(8.0)
+///     .with_miter_limit(4.0);
+/// ```
 ///
 /// ## Overview
 ///
@@ -108,6 +136,8 @@ macro_rules! nan_check {
 pub struct StrokeTessellator {
     attrib_buffer: Vec<f32>,
     builder_attrib_store: SimpleAttributeStore,
+    // Keep opt-in join data out of EndpointData and reuse its mesh allocations.
+    arcs: ArcsState,
 }
 
 impl StrokeTessellator {
@@ -115,6 +145,7 @@ impl StrokeTessellator {
         StrokeTessellator {
             attrib_buffer: Vec::new(),
             builder_attrib_store: SimpleAttributeStore::new(0),
+            arcs: ArcsState::default(),
         }
     }
 
@@ -125,13 +156,22 @@ impl StrokeTessellator {
         options: &StrokeOptions,
         builder: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
+        self.tessellate_impl(input, options, builder)
+    }
+
+    fn tessellate_impl<Output: StrokeGeometryBuilder + ?Sized>(
+        &mut self,
+        input: impl IntoIterator<Item = PathEvent>,
+        options: &StrokeOptions,
+        builder: &mut Output,
+    ) -> TessellationResult {
         debug_assert!(
             options.variable_line_width.is_none(),
             "Variable line width requires custom attributes. Try tessellate_with_ids or tessellate_path",
         );
 
         let mut buffer = Vec::new();
-        let builder = StrokeBuilderImpl::new(options, &mut buffer, builder);
+        let builder = StrokeBuilderImpl::new(options, &mut buffer, &mut self.arcs, builder);
 
         builder.tessellate_fw(input)
     }
@@ -145,6 +185,17 @@ impl StrokeTessellator {
         options: &StrokeOptions,
         output: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
+        self.tessellate_with_ids_impl(path, positions, custom_attributes, options, output)
+    }
+
+    fn tessellate_with_ids_impl<Output: StrokeGeometryBuilder + ?Sized>(
+        &mut self,
+        path: impl IntoIterator<Item = IdEvent>,
+        positions: &impl PositionStore,
+        custom_attributes: Option<&dyn AttributeStore>,
+        options: &StrokeOptions,
+        output: &mut Output,
+    ) -> TessellationResult {
         let custom_attributes = custom_attributes.unwrap_or(&());
 
         self.attrib_buffer.clear();
@@ -152,7 +203,8 @@ impl StrokeTessellator {
             self.attrib_buffer.push(0.0);
         }
 
-        let builder = StrokeBuilderImpl::new(options, &mut self.attrib_buffer, output);
+        let builder =
+            StrokeBuilderImpl::new(options, &mut self.attrib_buffer, &mut self.arcs, output);
 
         builder.tessellate_with_ids(path, positions, custom_attributes)
     }
@@ -167,12 +219,33 @@ impl StrokeTessellator {
         options: &'l StrokeOptions,
         builder: &'l mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
-        let path = path.into();
+        self.tessellate_path_impl(path.into(), options, builder)
+    }
 
+    /// Compute the tessellation from a path slice with static output dispatch.
+    ///
+    /// This produces the same geometry as [`StrokeTessellator::tessellate_path`]
+    /// while allowing the compiler to specialize the hot stroke-output calls for
+    /// the concrete builder type.
+    pub fn tessellate_path_with_builder<'l, Output: StrokeGeometryBuilder>(
+        &'l mut self,
+        path: impl Into<PathSlice<'l>>,
+        options: &'l StrokeOptions,
+        builder: &'l mut Output,
+    ) -> TessellationResult {
+        self.tessellate_path_impl(path.into(), options, builder)
+    }
+
+    fn tessellate_path_impl<'l, Output: StrokeGeometryBuilder + ?Sized>(
+        &'l mut self,
+        path: PathSlice<'l>,
+        options: &'l StrokeOptions,
+        builder: &'l mut Output,
+    ) -> TessellationResult {
         if path.num_attributes() > 0 {
-            self.tessellate_with_ids(path.id_iter(), &path, Some(&path), options, builder)
+            self.tessellate_with_ids_impl(path.id_iter(), &path, Some(&path), options, builder)
         } else {
-            self.tessellate(path.iter(), options, builder)
+            self.tessellate_impl(path.iter(), options, builder)
         }
     }
 
@@ -223,6 +296,7 @@ impl StrokeTessellator {
             options,
             &mut self.attrib_buffer,
             &mut self.builder_attrib_store,
+            &mut self.arcs,
             output,
         ))
     }
@@ -247,6 +321,7 @@ impl StrokeTessellator {
             options,
             &mut self.attrib_buffer,
             &mut self.builder_attrib_store,
+            &mut self.arcs,
             output,
         )
     }
@@ -351,26 +426,169 @@ impl Default for EndpointData {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(crate) enum EndpointDifferential {
+    None,
+    Regular {
+        unit_tangent: Vector,
+        curvature: f64,
+    },
+    Degenerate,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+struct EndpointDifferentials {
+    incoming: EndpointDifferential,
+    outgoing: EndpointDifferential,
+}
+
+impl Default for EndpointDifferential {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+struct ArcsState {
+    point_buffer: PointBuffer<EndpointDifferentials>,
+    firsts: ArrayVec<EndpointDifferentials, 2>,
+    next: EndpointDifferentials,
+    mesh: ArcsMesh,
+    vertex_ids: Vec<VertexId>,
+}
+
+impl Default for ArcsState {
+    fn default() -> Self {
+        Self {
+            point_buffer: PointBuffer::new(),
+            firsts: ArrayVec::new(),
+            next: EndpointDifferentials::default(),
+            mesh: ArcsMesh::default(),
+            vertex_ids: Vec::new(),
+        }
+    }
+}
+
+impl ArcsState {
+    fn reset_differentials(&mut self, point_count: usize) {
+        self.point_buffer.clear();
+        self.firsts.clear();
+        self.next = EndpointDifferentials::default();
+        for _ in 0..point_count {
+            self.point_buffer.push(EndpointDifferentials::default());
+        }
+    }
+
+    fn record_segment(&mut self, differentials: SegmentDifferentials) {
+        self.point_buffer.last_mut().outgoing = differentials.start;
+        self.next.incoming = differentials.end;
+    }
+
+    fn push_next(&mut self, is_endpoint: bool) {
+        let next = self.take_next(is_endpoint);
+        self.point_buffer.push(next);
+    }
+
+    fn replace_last_with_next(&mut self, is_endpoint: bool) {
+        let next = self.take_next(is_endpoint);
+        self.point_buffer.replace_last(next);
+    }
+
+    fn take_next(&mut self, is_endpoint: bool) -> EndpointDifferentials {
+        if !is_endpoint {
+            return EndpointDifferentials::default();
+        }
+
+        let next = self.next;
+        self.next = EndpointDifferentials::default();
+        next
+    }
+
+    fn capture_firsts(&mut self) {
+        let (prev, join) = self.point_buffer.last_two();
+        self.firsts.push(*prev);
+        self.firsts.push(*join);
+    }
+
+    fn prepare_first_for_close(&mut self, last_position: Point, first_position: Point) {
+        let mut first = self.firsts[0];
+        if last_position == first_position {
+            self.point_buffer.last_mut().outgoing = first.outgoing;
+        } else {
+            let closing = line_differentials(last_position, first_position);
+            self.point_buffer.last_mut().outgoing = closing.start;
+            first.incoming = closing.end;
+        }
+        self.next = first;
+    }
+
+    fn prepare_second_for_close(&mut self) {
+        self.next = self.firsts[1];
+    }
+
+    fn clear(&mut self) {
+        self.reset_differentials(0);
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum ArcsJoinFallback {
+    Round,
+}
+
+#[allow(clippy::large_enum_variant)] // Join preparation must not allocate in the stroke hot path.
+enum PreparedArcsJoin {
+    Curved(ResolvedArcsJoin),
+    ParallelRectangle(PreparedParallelRectangle),
+    RadialClip(PreparedRadialClip),
+}
+
+#[cfg(not(test))]
+const _: () = assert!(core::mem::size_of::<PreparedArcsJoin>() <= 152);
+
+#[derive(Copy, Clone)]
+struct PreparedParallelRectangle {
+    near_left: Point,
+    near_right: Point,
+    far_left: Point,
+    far_right: Point,
+}
+
+#[derive(Copy, Clone)]
+struct PreparedRadialClip {
+    turn: TurnSide,
+    incoming_offset_point: Point,
+    outgoing_offset_point: Point,
+    incoming: Point,
+    outgoing: Point,
+}
+
+#[derive(Copy, Clone)]
+struct SegmentDifferentials {
+    start: EndpointDifferential,
+    end: EndpointDifferential,
+}
+
 /// A builder object that tessellates a stroked path via the `PathBuilder`
 /// interface.
 ///
 /// Can be created using `StrokeTessellator::builder_with_attributes`.
 pub struct StrokeBuilder<'l> {
-    builder: StrokeBuilderImpl<'l>,
+    builder: StrokeBuilderImpl<'l, dyn StrokeGeometryBuilder + 'l>,
     attrib_store: &'l mut SimpleAttributeStore,
     validator: DebugValidator,
     prev: (Point, EndpointId, f32),
 }
 
 impl<'l> StrokeBuilder<'l> {
-    pub(crate) fn new(
+    fn new(
         options: &StrokeOptions,
         attrib_buffer: &'l mut Vec<f32>,
         attrib_store: &'l mut SimpleAttributeStore,
+        arcs: &'l mut ArcsState,
         output: &'l mut dyn StrokeGeometryBuilder,
     ) -> Self {
         StrokeBuilder {
-            builder: StrokeBuilderImpl::new(options, attrib_buffer, output),
+            builder: StrokeBuilderImpl::new(options, attrib_buffer, arcs, output),
             attrib_store,
             validator: DebugValidator::new(),
             prev: (Point::zero(), EndpointId::INVALID, 0.0),
@@ -379,7 +597,7 @@ impl<'l> StrokeBuilder<'l> {
 
     #[inline]
     pub fn set_line_join(&mut self, join: LineJoin) {
-        self.builder.options.line_join = join;
+        self.builder.set_line_join(join);
     }
 
     #[inline]
@@ -574,10 +792,10 @@ impl<'l> Build for StrokeBuilder<'l> {
 }
 
 /// A builder that tessellates a stroke directly without allocating any intermediate data structure.
-pub(crate) struct StrokeBuilderImpl<'l> {
+pub(crate) struct StrokeBuilderImpl<'l, Output: StrokeGeometryBuilder + ?Sized> {
     options: StrokeOptions,
     pub(crate) error: Option<TessellationError>,
-    pub(crate) output: &'l mut dyn StrokeGeometryBuilder,
+    pub(crate) output: &'l mut Output,
     vertex: StrokeVertexData<'l>,
     point_buffer: PointBuffer,
     firsts: ArrayVec<EndpointData, 2>,
@@ -585,15 +803,23 @@ pub(crate) struct StrokeBuilderImpl<'l> {
     sub_path_start_advancement: f32,
     square_merge_threshold: f32,
     may_need_empty_cap: bool,
+    arcs: &'l mut ArcsState,
+    arcs_differentials_enabled: bool,
 }
 
-impl<'l> StrokeBuilderImpl<'l> {
-    pub(crate) fn new(
+impl<'l, Output: StrokeGeometryBuilder + ?Sized> StrokeBuilderImpl<'l, Output> {
+    fn new(
         options: &StrokeOptions,
         attrib_buffer: &'l mut Vec<f32>,
-        output: &'l mut dyn StrokeGeometryBuilder,
+        arcs: &'l mut ArcsState,
+        output: &'l mut Output,
     ) -> Self {
         output.begin_geometry();
+
+        let arcs_differentials_enabled = options.line_join == LineJoin::Arcs;
+        if arcs_differentials_enabled {
+            arcs.reset_differentials(0);
+        }
 
         // Ideally we'd use the bounding rect of the path as an indication
         // of what is considered a very small distance between two points,
@@ -627,6 +853,8 @@ impl<'l> StrokeBuilderImpl<'l> {
             sub_path_start_advancement: 0.0,
             square_merge_threshold,
             may_need_empty_cap: false,
+            arcs,
+            arcs_differentials_enabled,
         }
     }
 
@@ -634,6 +862,27 @@ impl<'l> StrokeBuilderImpl<'l> {
     pub(crate) fn error<E: Into<TessellationError>>(&mut self, e: E) {
         if self.error.is_none() {
             self.error = Some(e.into());
+        }
+    }
+
+    fn set_line_join(&mut self, join: LineJoin) {
+        if join == LineJoin::Arcs && !self.arcs_differentials_enabled {
+            self.arcs.reset_differentials(self.point_buffer.count());
+            self.arcs_differentials_enabled = true;
+        }
+        self.options.line_join = join;
+    }
+
+    fn record_segment_differentials(&mut self, compute: impl FnOnce() -> SegmentDifferentials) {
+        if self.arcs_differentials_enabled {
+            self.arcs.record_segment(compute());
+        }
+    }
+
+    fn record_closing_differentials(&mut self, first_position: Point) {
+        if self.arcs_differentials_enabled {
+            self.arcs
+                .prepare_first_for_close(self.point_buffer.last().position, first_position);
         }
     }
 
@@ -687,8 +936,12 @@ impl<'l> StrokeBuilderImpl<'l> {
                 IdEvent::Line { to, .. } => {
                     validator.edge();
                     let half_width = base_width * attributes.get(to)[attrib_index] * 0.5;
+                    let from_position = current_position;
                     current_endpoint = to;
                     current_position = positions.get_endpoint(to);
+                    self.record_segment_differentials(|| {
+                        line_differentials(from_position, current_position)
+                    });
                     self.step(
                         EndpointData {
                             position: current_position,
@@ -800,8 +1053,12 @@ impl<'l> StrokeBuilderImpl<'l> {
                 }
                 IdEvent::Line { to, .. } => {
                     validator.edge();
+                    let from_position = current_position;
                     current_endpoint = to;
                     current_position = positions.get_endpoint(to);
+                    self.record_segment_differentials(|| {
+                        line_differentials(from_position, current_position)
+                    });
                     self.fixed_width_step(
                         EndpointData {
                             position: current_position,
@@ -981,6 +1238,8 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) {
         let half_width = width * 0.5;
+        let from = self.point_buffer.last().position;
+        self.record_segment_differentials(|| line_differentials(from, to));
         self.step(
             EndpointData {
                 position: to,
@@ -1002,6 +1261,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         end_width: f32,
         attributes: &dyn AttributeStore,
     ) {
+        self.record_segment_differentials(|| quadratic_differentials(curve));
         flatten_quad(
             curve,
             self.options.tolerance,
@@ -1040,6 +1300,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         end_width: f32,
         attributes: &dyn AttributeStore,
     ) {
+        self.record_segment_differentials(|| cubic_differentials(curve));
         curve.for_each_flattened_with_t(self.options.tolerance, &mut |line, t| {
             let is_flattening_step = t.end != 1.0;
             let src = if is_flattening_step {
@@ -1093,6 +1354,8 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
+        let from = self.point_buffer.last().position;
+        self.record_segment_differentials(|| line_differentials(from, to));
         self.fixed_width_step(
             EndpointData {
                 position: to,
@@ -1113,6 +1376,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
+        self.record_segment_differentials(|| quadratic_differentials(curve));
         flatten_quad(
             curve,
             self.options.tolerance,
@@ -1150,6 +1414,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
+        self.record_segment_differentials(|| cubic_differentials(curve));
         curve.for_each_flattened_with_t(self.options.tolerance, &mut |line, t| {
             let is_flattening_step = t.end != 1.0;
             let src = if is_flattening_step {
@@ -1190,6 +1455,9 @@ impl<'l> StrokeBuilderImpl<'l> {
 
         self.point_buffer.clear();
         self.firsts.clear();
+        if self.arcs_differentials_enabled {
+            self.arcs.clear();
+        }
     }
 
     pub(crate) fn build(self) -> TessellationResult {
@@ -1215,6 +1483,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         assert!(!self.firsts.is_empty());
 
         let mut p = self.firsts[0];
+        self.record_closing_differentials(p.position);
         // Make sure we re-compute the advancement instead of using the one found at the
         // beginning of the sub-path.
         let advancement = p.advancement;
@@ -1239,6 +1508,9 @@ impl<'l> StrokeBuilderImpl<'l> {
 
         if self.firsts.len() >= 2 {
             let p2 = self.firsts[1];
+            if self.arcs_differentials_enabled {
+                self.arcs.prepare_second_for_close();
+            }
             if self.options.variable_line_width.is_some() {
                 self.step_impl(p2, attributes)?;
             } else {
@@ -1431,6 +1703,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             } else {
                 false
             };
+            let mut arcs_join = None;
             if fast_path {
                 join.line_join = LineJoin::Miter;
                 // can fast-path.
@@ -1443,6 +1716,11 @@ impl<'l> StrokeBuilderImpl<'l> {
                     self.output,
                 )?;
             } else {
+                if join.line_join == LineJoin::Arcs {
+                    debug_assert!(self.arcs_differentials_enabled);
+                    let differentials = *self.arcs.point_buffer.last();
+                    arcs_join = prepare_arcs_join(join, differentials, &self.options);
+                }
                 compute_join_side_positions(
                     prev,
                     join,
@@ -1457,6 +1735,12 @@ impl<'l> StrokeBuilderImpl<'l> {
                     self.options.miter_limit,
                     SIDE_NEGATIVE,
                 );
+                if let Some(resolved) = arcs_join.as_ref() {
+                    if align_arcs_side_points(join, resolved).is_err() {
+                        join.line_join = LineJoin::Round;
+                        arcs_join = None;
+                    }
+                }
 
                 // Prevent folding when the other side is concave.
                 if join.side_points[SIDE_POSITIVE].single_vertex.is_some() {
@@ -1489,7 +1773,10 @@ impl<'l> StrokeBuilderImpl<'l> {
 
                 tessellate_join(
                     join,
+                    arcs_join.as_ref(),
                     &self.options,
+                    &mut self.arcs.mesh,
+                    &mut self.arcs.vertex_ids,
                     &mut self.vertex,
                     attributes,
                     self.output,
@@ -1498,20 +1785,28 @@ impl<'l> StrokeBuilderImpl<'l> {
                 if count == 2 {
                     self.firsts.push(*prev);
                     self.firsts.push(*join);
+                    if self.arcs_differentials_enabled {
+                        self.arcs.capture_firsts();
+                    }
                 }
             }
         }
 
         if skip {
+            if self.arcs_differentials_enabled {
+                self.arcs.replace_last_with_next(next.src.is_endpoint());
+            }
             self.point_buffer.replace_last(next);
         } else {
+            if self.arcs_differentials_enabled {
+                self.arcs.push_next(next.src.is_endpoint());
+            }
             self.point_buffer.push(next);
         }
 
         Ok(true)
     }
 
-    #[cfg_attr(feature = "profiling", inline(never))]
     pub(crate) fn step(&mut self, next: EndpointData, attributes: &dyn AttributeStore) {
         if let Err(e) = self.step_impl(next, attributes) {
             self.error(e);
@@ -1572,6 +1867,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             } else {
                 false
             };
+            let mut arcs_join = None;
             if fast_path {
                 join.line_join = LineJoin::Miter;
                 // can fast-path.
@@ -1584,6 +1880,11 @@ impl<'l> StrokeBuilderImpl<'l> {
                     self.output,
                 )?;
             } else {
+                if join.line_join == LineJoin::Arcs {
+                    debug_assert!(self.arcs_differentials_enabled);
+                    let differentials = *self.arcs.point_buffer.last();
+                    arcs_join = prepare_arcs_join(join, differentials, &self.options);
+                }
                 compute_join_side_positions_fixed_width(
                     prev,
                     join,
@@ -1591,6 +1892,12 @@ impl<'l> StrokeBuilderImpl<'l> {
                     self.options.miter_limit,
                     &mut self.vertex,
                 )?;
+                if let Some(resolved) = arcs_join.as_ref() {
+                    if align_arcs_side_points(join, resolved).is_err() {
+                        join.line_join = LineJoin::Round;
+                        arcs_join = None;
+                    }
+                }
 
                 add_join_base_vertices(
                     join,
@@ -1614,7 +1921,10 @@ impl<'l> StrokeBuilderImpl<'l> {
 
             tessellate_join(
                 join,
+                arcs_join.as_ref(),
                 &self.options,
+                &mut self.arcs.mesh,
+                &mut self.arcs.vertex_ids,
                 &mut self.vertex,
                 attributes,
                 self.output,
@@ -1623,15 +1933,20 @@ impl<'l> StrokeBuilderImpl<'l> {
             if count == 2 {
                 self.firsts.push(*prev);
                 self.firsts.push(*join);
+                if self.arcs_differentials_enabled {
+                    self.arcs.capture_firsts();
+                }
             }
         }
 
+        if self.arcs_differentials_enabled {
+            self.arcs.push_next(next.src.is_endpoint());
+        }
         self.point_buffer.push(next);
 
         Ok(true)
     }
 
-    #[cfg_attr(feature = "profiling", inline(never))]
     pub(crate) fn fixed_width_step(&mut self, next: EndpointData, attributes: &dyn AttributeStore) {
         if let Err(e) = self.fixed_width_step_impl(next, attributes) {
             self.error(e);
@@ -1639,7 +1954,63 @@ impl<'l> StrokeBuilderImpl<'l> {
     }
 }
 
-#[cfg_attr(feature = "profiling", inline(never))]
+fn line_differentials(from: Point, to: Point) -> SegmentDifferentials {
+    let tangent = to - from;
+    let differential = regular_differential(tangent, Vector::zero());
+    SegmentDifferentials {
+        start: differential,
+        end: differential,
+    }
+}
+
+fn quadratic_differentials(curve: &QuadraticBezierSegment<f32>) -> SegmentDifferentials {
+    let second_derivative =
+        (curve.to.to_vector() - curve.ctrl.to_vector() * 2.0 + curve.from.to_vector()) * 2.0;
+    SegmentDifferentials {
+        start: regular_differential((curve.ctrl - curve.from) * 2.0, second_derivative),
+        end: regular_differential((curve.to - curve.ctrl) * 2.0, second_derivative),
+    }
+}
+
+fn cubic_differentials(curve: &CubicBezierSegment<f32>) -> SegmentDifferentials {
+    let start_second_derivative =
+        (curve.from.to_vector() - curve.ctrl1.to_vector() * 2.0 + curve.ctrl2.to_vector()) * 6.0;
+    let end_second_derivative =
+        (curve.to.to_vector() - curve.ctrl2.to_vector() * 2.0 + curve.ctrl1.to_vector()) * 6.0;
+    SegmentDifferentials {
+        start: regular_differential((curve.ctrl1 - curve.from) * 3.0, start_second_derivative),
+        end: regular_differential((curve.to - curve.ctrl2) * 3.0, end_second_derivative),
+    }
+}
+
+pub(crate) fn regular_differential(
+    tangent: Vector,
+    second_derivative: Vector,
+) -> EndpointDifferential {
+    let tangent_x = f64::from(tangent.x);
+    let tangent_y = f64::from(tangent.y);
+    let speed_squared = tangent_x * tangent_x + tangent_y * tangent_y;
+    if !speed_squared.is_finite() || speed_squared == 0.0 {
+        return EndpointDifferential::Degenerate;
+    }
+
+    let cross =
+        tangent_x * f64::from(second_derivative.y) - tangent_y * f64::from(second_derivative.x);
+    let inverse_speed = speed_squared.sqrt().recip();
+    let curvature = cross * inverse_speed * inverse_speed * inverse_speed;
+    if !curvature.is_finite() {
+        return EndpointDifferential::Degenerate;
+    }
+
+    EndpointDifferential::Regular {
+        unit_tangent: Vector::new(
+            (tangent_x * inverse_speed) as f32,
+            (tangent_y * inverse_speed) as f32,
+        ),
+        curvature,
+    }
+}
+
 fn compute_join_side_positions_fixed_width(
     prev: &EndpointData,
     join: &mut EndpointData,
@@ -1739,14 +2110,13 @@ fn compute_join_side_positions_fixed_width(
 // and varying line width causing the join to fold back. When this is the
 // case we are better off skipping this join.
 // "M 170 150 60 Q 215 120 240 140 2" is an example of this.
-#[cfg_attr(feature = "profiling", inline(never))]
 fn flattened_step(
     prev: &mut EndpointData,
     join: &mut EndpointData,
     next: &mut EndpointData,
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) -> Result<bool, TessellationError> {
     let prev_edge = join.position - prev.position;
     let prev_length = prev_edge.length();
@@ -1805,7 +2175,6 @@ fn flattened_step(
     Ok(false)
 }
 
-#[cfg_attr(feature = "profiling", inline(never))]
 fn compute_edge_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointData) {
     let edge = p1.position - p0.position;
     let d = edge.length();
@@ -1865,11 +2234,10 @@ fn compute_side_attachment_positions(
     nan_check!(p1.side_points[side].prev);
 }
 
-#[cfg_attr(feature = "profiling", inline(never))]
 fn add_edge_triangles(
     p0: &EndpointData,
     p1: &EndpointData,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) {
     let mut p0_neg = p0.side_points[SIDE_NEGATIVE].next_vertex;
     let mut p0_pos = p0.side_points[SIDE_POSITIVE].next_vertex;
@@ -1903,14 +2271,175 @@ fn add_edge_triangles(
     }
 }
 
-#[cfg_attr(feature = "profiling", inline(never))]
+fn resolve_arcs_join(
+    join: &EndpointData,
+    differentials: EndpointDifferentials,
+    options: &StrokeOptions,
+) -> Result<JoinConstruction, ArcsJoinFallback> {
+    let (
+        EndpointDifferential::Regular {
+            unit_tangent: incoming_tangent,
+            curvature: incoming_curvature,
+        },
+        EndpointDifferential::Regular {
+            unit_tangent: outgoing_tangent,
+            curvature: outgoing_curvature,
+        },
+    ) = (differentials.incoming, differentials.outgoing)
+    else {
+        return Err(ArcsJoinFallback::Round);
+    };
+
+    let input = JoinInput {
+        at: Point64::new(f64::from(join.position.x), f64::from(join.position.y)),
+        incoming: SegmentEnd {
+            tangent: Vector64::new(f64::from(incoming_tangent.x), f64::from(incoming_tangent.y)),
+            curvature: incoming_curvature,
+        },
+        outgoing: SegmentEnd {
+            tangent: Vector64::new(f64::from(outgoing_tangent.x), f64::from(outgoing_tangent.y)),
+            curvature: outgoing_curvature,
+        },
+        half_width: f64::from(join.half_width),
+        miter_limit: f64::from(options.miter_limit),
+    };
+
+    stroke_arcs::construct_svg2(input).map_err(|_| ArcsJoinFallback::Round)
+}
+
+fn prepare_arcs_join(
+    join: &mut EndpointData,
+    differentials: EndpointDifferentials,
+    options: &StrokeOptions,
+) -> Option<PreparedArcsJoin> {
+    debug_assert_eq!(join.line_join, LineJoin::Arcs);
+
+    let resolved = resolve_arcs_join(join, differentials, options);
+    match resolved {
+        Ok(JoinConstruction::Empty) => join.line_join = LineJoin::Miter,
+        Ok(JoinConstruction::MiterClip) => join.line_join = LineJoin::MiterClip,
+        Err(ArcsJoinFallback::Round) => {
+            join.line_join = LineJoin::Round;
+        }
+        Ok(JoinConstruction::ParallelRectangle(rectangle)) => {
+            if let Ok(rectangle) = prepare_parallel_rectangle(rectangle) {
+                return Some(PreparedArcsJoin::ParallelRectangle(rectangle));
+            }
+            join.line_join = LineJoin::Round;
+        }
+        Ok(JoinConstruction::RadialClip(radial_clip)) => {
+            if let Ok(radial_clip) = prepare_radial_clip(radial_clip) {
+                return Some(PreparedArcsJoin::RadialClip(radial_clip));
+            }
+            join.line_join = LineJoin::Round;
+        }
+        Ok(JoinConstruction::Arcs(resolved)) => return Some(PreparedArcsJoin::Curved(resolved)),
+    }
+
+    None
+}
+
+fn prepare_radial_clip(
+    radial_clip: RadialClipJoin,
+) -> Result<PreparedRadialClip, ArcsJoinFallback> {
+    Ok(PreparedRadialClip {
+        turn: radial_clip.turn,
+        incoming_offset_point: point64_to_point(radial_clip.incoming_offset_point)?,
+        outgoing_offset_point: point64_to_point(radial_clip.outgoing_offset_point)?,
+        incoming: point64_to_point(radial_clip.incoming)?,
+        outgoing: point64_to_point(radial_clip.outgoing)?,
+    })
+}
+
+fn prepare_parallel_rectangle(
+    rectangle: ParallelRectangleJoin,
+) -> Result<PreparedParallelRectangle, ArcsJoinFallback> {
+    Ok(PreparedParallelRectangle {
+        near_left: point64_to_point(rectangle.near_left)?,
+        near_right: point64_to_point(rectangle.near_right)?,
+        far_left: point64_to_point(rectangle.far_left)?,
+        far_right: point64_to_point(rectangle.far_right)?,
+    })
+}
+
+fn align_arcs_side_points(
+    join: &mut EndpointData,
+    prepared: &PreparedArcsJoin,
+) -> Result<(), ArcsJoinFallback> {
+    match prepared {
+        PreparedArcsJoin::Curved(resolved) => {
+            let incoming = point64_to_point(resolved.incoming_offset_point())?;
+            let outgoing = point64_to_point(resolved.outgoing_offset_point())?;
+            let side = arcs_outer_side(resolved.turn());
+            join.side_points[side].prev = incoming;
+            join.side_points[side].next = outgoing;
+            join.side_points[side].single_vertex = None;
+        }
+        PreparedArcsJoin::ParallelRectangle(rectangle) => {
+            join.side_points[SIDE_POSITIVE].prev = rectangle.near_left;
+            join.side_points[SIDE_POSITIVE].next = rectangle.near_right;
+            join.side_points[SIDE_POSITIVE].single_vertex = None;
+            join.side_points[SIDE_NEGATIVE].prev = rectangle.near_right;
+            join.side_points[SIDE_NEGATIVE].next = rectangle.near_left;
+            join.side_points[SIDE_NEGATIVE].single_vertex = None;
+            join.fold = [false, false];
+        }
+        PreparedArcsJoin::RadialClip(radial_clip) => {
+            let side = arcs_outer_side(radial_clip.turn);
+            join.side_points[side].prev = radial_clip.incoming_offset_point;
+            join.side_points[side].next = radial_clip.outgoing_offset_point;
+            join.side_points[side].single_vertex = None;
+        }
+    }
+    Ok(())
+}
+
+fn arcs_outer_side(turn: TurnSide) -> usize {
+    match turn {
+        TurnSide::Left => SIDE_NEGATIVE,
+        TurnSide::Right => SIDE_POSITIVE,
+    }
+}
+
+fn point64_to_point(value: Point64) -> Result<Point, ArcsJoinFallback> {
+    let minimum = f64::from(f32::MIN);
+    let maximum = f64::from(f32::MAX);
+    if !value.x.is_finite()
+        || !value.y.is_finite()
+        || value.x < minimum
+        || value.x > maximum
+        || value.y < minimum
+        || value.y > maximum
+    {
+        return Err(ArcsJoinFallback::Round);
+    }
+
+    Ok(point(value.x as f32, value.y as f32))
+}
+
 fn tessellate_join(
     join: &mut EndpointData,
+    arcs_join: Option<&PreparedArcsJoin>,
     options: &StrokeOptions,
+    arcs_mesh: &mut ArcsMesh,
+    arcs_vertex_ids: &mut Vec<VertexId>,
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) -> Result<(), TessellationError> {
+    debug_assert!(join.line_join != LineJoin::Arcs || arcs_join.is_some());
+
+    if let Some(PreparedArcsJoin::ParallelRectangle(rectangle)) = arcs_join {
+        emit_parallel_arcs_rectangle(join, rectangle, vertex, attributes, output)?;
+        return Ok(());
+    }
+
+    if let Some(PreparedArcsJoin::RadialClip(radial_clip)) = arcs_join {
+        if emit_radial_arcs_clip(join, radial_clip, vertex, attributes, output)? {
+            return Ok(());
+        }
+    }
+
     let side_needs_join = [
         join.side_points[SIDE_POSITIVE].single_vertex.is_none() && !join.fold[SIDE_NEGATIVE],
         join.side_points[SIDE_NEGATIVE].single_vertex.is_none() && !join.fold[SIDE_POSITIVE],
@@ -1956,22 +2485,292 @@ fn tessellate_join(
             continue;
         }
 
-        if join.line_join == LineJoin::Round {
-            tessellate_round_join(join, side, options, vertex, attributes, output)?;
+        match join.line_join {
+            LineJoin::Round => {
+                tessellate_round_join(join, side, options, vertex, attributes, output)?;
+            }
+            LineJoin::Arcs => {
+                let emitted = if let Some(PreparedArcsJoin::Curved(resolved)) = arcs_join {
+                    side == arcs_outer_side(resolved.turn())
+                        && emit_arcs_join(
+                            join,
+                            resolved,
+                            side,
+                            options,
+                            arcs_mesh,
+                            arcs_vertex_ids,
+                            vertex,
+                            attributes,
+                            output,
+                        )?
+                } else {
+                    false
+                };
+                if !emitted {
+                    tessellate_round_join(join, side, options, vertex, attributes, output)?;
+                }
+            }
+            _ => {}
         }
     }
 
     Ok(())
 }
 
-#[cfg_attr(feature = "profiling", inline(never))]
+fn emit_parallel_arcs_rectangle(
+    join: &EndpointData,
+    rectangle: &PreparedParallelRectangle,
+    vertex: &mut StrokeVertexData,
+    attributes: &dyn AttributeStore,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
+) -> Result<(), TessellationError> {
+    if rectangle.far_left == join.side_points[SIDE_POSITIVE].prev
+        && rectangle.far_right == join.side_points[SIDE_NEGATIVE].prev
+    {
+        return Ok(());
+    }
+
+    vertex.position_on_path = join.position;
+    vertex.half_width = join.half_width;
+    vertex.side = Side::Positive;
+    vertex.normal = (rectangle.far_left - join.position) / join.half_width;
+    let far_left_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
+    vertex.side = Side::Negative;
+    vertex.normal = (rectangle.far_right - join.position) / join.half_width;
+    let far_right_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
+
+    let near_left_vertex = join.side_points[SIDE_POSITIVE].prev_vertex;
+    let near_right_vertex = join.side_points[SIDE_NEGATIVE].prev_vertex;
+    output.add_triangle(near_left_vertex, far_left_vertex, far_right_vertex);
+    output.add_triangle(near_left_vertex, far_right_vertex, near_right_vertex);
+    Ok(())
+}
+
+fn emit_radial_arcs_clip(
+    join: &EndpointData,
+    radial_clip: &PreparedRadialClip,
+    vertex: &mut StrokeVertexData,
+    attributes: &dyn AttributeStore,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
+) -> Result<bool, TessellationError> {
+    let outer_side = arcs_outer_side(radial_clip.turn);
+    let inner_side = 1 - outer_side;
+    if join.side_points[inner_side].single_vertex.is_none()
+        || join.fold[outer_side]
+        || join.fold[inner_side]
+    {
+        return Ok(false);
+    }
+
+    vertex.position_on_path = join.position;
+    vertex.half_width = join.half_width;
+    vertex.side = if outer_side == SIDE_POSITIVE {
+        Side::Positive
+    } else {
+        Side::Negative
+    };
+
+    vertex.normal = (radial_clip.incoming - join.position) / join.half_width;
+    let incoming_clip_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
+    let outgoing_clip_vertex = if radial_clip.outgoing == radial_clip.incoming {
+        incoming_clip_vertex
+    } else {
+        vertex.normal = (radial_clip.outgoing - join.position) / join.half_width;
+        output.add_stroke_vertex(StrokeVertex(vertex, attributes))?
+    };
+
+    let inner_vertex = join.side_points[inner_side].prev_vertex;
+    let incoming_outer_vertex = join.side_points[outer_side].prev_vertex;
+    let outgoing_outer_vertex = join.side_points[outer_side].next_vertex;
+    match radial_clip.turn {
+        TurnSide::Left => {
+            output.add_triangle(inner_vertex, outgoing_outer_vertex, outgoing_clip_vertex);
+            if outgoing_clip_vertex != incoming_clip_vertex {
+                output.add_triangle(inner_vertex, outgoing_clip_vertex, incoming_clip_vertex);
+            }
+            output.add_triangle(inner_vertex, incoming_clip_vertex, incoming_outer_vertex);
+        }
+        TurnSide::Right => {
+            output.add_triangle(inner_vertex, incoming_outer_vertex, incoming_clip_vertex);
+            if incoming_clip_vertex != outgoing_clip_vertex {
+                output.add_triangle(inner_vertex, incoming_clip_vertex, outgoing_clip_vertex);
+            }
+            output.add_triangle(inner_vertex, outgoing_clip_vertex, outgoing_outer_vertex);
+        }
+    }
+
+    Ok(true)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn emit_arcs_join(
+    join: &EndpointData,
+    resolved: &ResolvedArcsJoin,
+    side: usize,
+    options: &StrokeOptions,
+    mesh: &mut ArcsMesh,
+    vertex_ids: &mut Vec<VertexId>,
+    vertex: &mut StrokeVertexData,
+    attributes: &dyn AttributeStore,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
+) -> Result<bool, TessellationError> {
+    let tessellation = match mesh.tessellate_for_output(resolved, f64::from(options.tolerance)) {
+        Ok(tessellation) => tessellation,
+        Err(_) => return Ok(false),
+    };
+
+    match tessellation {
+        ArcsOutput::Triangle(triangle) => {
+            let Ok(position) = point64_to_point(triangle.middle) else {
+                return Ok(false);
+            };
+            if position == join.position {
+                return Ok(false);
+            }
+
+            vertex.position_on_path = join.position;
+            vertex.half_width = join.half_width;
+            vertex.side = if side == SIDE_POSITIVE {
+                Side::Positive
+            } else {
+                Side::Negative
+            };
+            vertex.normal = (position - join.position) / join.half_width;
+            let middle_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
+            let vertex_ids = [
+                join.side_points[side].prev_vertex,
+                middle_vertex,
+                join.side_points[side].next_vertex,
+            ];
+            output.add_triangle(
+                vertex_ids[triangle.indices[0]],
+                vertex_ids[triangle.indices[2]],
+                vertex_ids[triangle.indices[1]],
+            );
+            Ok(true)
+        }
+        ArcsOutput::Quad(quad) => {
+            let Ok(first_position) = point64_to_point(quad.middle[0]) else {
+                return Ok(false);
+            };
+            let Ok(second_position) = point64_to_point(quad.middle[1]) else {
+                return Ok(false);
+            };
+            if first_position == join.position || second_position == join.position {
+                return Ok(false);
+            }
+
+            vertex.position_on_path = join.position;
+            vertex.half_width = join.half_width;
+            vertex.side = if side == SIDE_POSITIVE {
+                Side::Positive
+            } else {
+                Side::Negative
+            };
+            vertex.normal = (first_position - join.position) / join.half_width;
+            let first_middle = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
+            vertex.normal = (second_position - join.position) / join.half_width;
+            let second_middle = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
+            let vertex_ids = [
+                join.side_points[side].prev_vertex,
+                first_middle,
+                second_middle,
+                join.side_points[side].next_vertex,
+            ];
+            for triangle in quad.indices.chunks_exact(3) {
+                output.add_triangle(
+                    vertex_ids[usize::from(triangle[0])],
+                    vertex_ids[usize::from(triangle[2])],
+                    vertex_ids[usize::from(triangle[1])],
+                );
+            }
+            Ok(true)
+        }
+        ArcsOutput::Fan { vertices, fan } => emit_arcs_mesh_output(
+            join,
+            side,
+            vertices,
+            Some(fan),
+            &[],
+            vertex_ids,
+            vertex,
+            attributes,
+            output,
+        ),
+        ArcsOutput::Mesh { vertices, indices } => emit_arcs_mesh_output(
+            join, side, vertices, None, indices, vertex_ids, vertex, attributes, output,
+        ),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn emit_arcs_mesh_output(
+    join: &EndpointData,
+    side: usize,
+    vertices: &[Point64],
+    fan: Option<ValidatedFan>,
+    indices: &[usize],
+    vertex_ids: &mut Vec<VertexId>,
+    vertex: &mut StrokeVertexData,
+    attributes: &dyn AttributeStore,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
+) -> Result<bool, TessellationError> {
+    if vertices.len() < 3 {
+        return Ok(false);
+    }
+
+    for point64 in &vertices[1..vertices.len() - 1] {
+        let Ok(position) = point64_to_point(*point64) else {
+            return Ok(false);
+        };
+        if position == join.position {
+            return Ok(false);
+        }
+    }
+
+    vertex_ids.clear();
+    vertex_ids.reserve(vertices.len());
+    vertex_ids.push(join.side_points[side].prev_vertex);
+
+    vertex.position_on_path = join.position;
+    vertex.half_width = join.half_width;
+    vertex.side = if side == SIDE_POSITIVE {
+        Side::Positive
+    } else {
+        Side::Negative
+    };
+    for point64 in &vertices[1..vertices.len() - 1] {
+        // The preflight above checked both components against the f32 range.
+        let position = point(point64.x as f32, point64.y as f32);
+        vertex.normal = (position - join.position) / join.half_width;
+        vertex_ids.push(output.add_stroke_vertex(StrokeVertex(vertex, attributes))?);
+    }
+    vertex_ids.push(join.side_points[side].next_vertex);
+
+    if let Some(fan) = fan {
+        for [first, second, third] in fan.triangles() {
+            output.add_triangle(vertex_ids[first], vertex_ids[third], vertex_ids[second]);
+        }
+    } else {
+        for triangle in indices.chunks_exact(3) {
+            output.add_triangle(
+                vertex_ids[triangle[0]],
+                vertex_ids[triangle[2]],
+                vertex_ids[triangle[1]],
+            );
+        }
+    }
+
+    Ok(true)
+}
+
 fn tessellate_round_join(
     join: &mut EndpointData,
     side: usize,
     options: &StrokeOptions,
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) -> Result<(), TessellationError> {
     let center = join.position;
     let radius = join.half_width;
@@ -2018,12 +2817,11 @@ fn tessellate_round_join(
     )
 }
 
-#[cfg_attr(feature = "profiling", inline(never))]
 fn add_join_base_vertices(
     join: &mut EndpointData,
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
     side: Side,
 ) -> Result<(), TessellationError> {
     vertex.side = side;
@@ -2054,7 +2852,6 @@ fn add_join_base_vertices(
 
 // TODO: the naming is a bit confusing. We do half of the work to compute the join's side positions
 // in compute_side_attachment_positions.
-#[cfg_attr(feature = "profiling", inline(never))]
 fn compute_join_side_positions(
     prev: &EndpointData,
     join: &mut EndpointData,
@@ -2132,7 +2929,7 @@ fn tessellate_last_edge(
     options: &StrokeOptions,
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) -> Result<(), TessellationError> {
     let v = p1.position - p0.position;
     p1.advancement = p0.advancement + v.length();
@@ -2209,7 +3006,7 @@ fn tessellate_first_edge(
     options: &StrokeOptions,
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) -> Result<(), TessellationError> {
     vertex.src = first.src;
     vertex.position_on_path = first.position;
@@ -2273,7 +3070,6 @@ fn tessellate_first_edge(
     }
 }
 
-#[cfg_attr(feature = "profiling", inline(never))]
 fn get_clip_intersections(
     previous_normal: Vector,
     next_normal: Vector,
@@ -2352,7 +3148,7 @@ fn approximate_thin_rectangle(builder: &mut StrokeBuilder, rect: &Box2D, attribu
     let options = builder.builder.options;
 
     let cap = match options.line_join {
-        LineJoin::Round => LineCap::Round,
+        LineJoin::Round | LineJoin::Arcs => LineCap::Round,
         _ => LineCap::Square,
     };
 
@@ -2366,22 +3162,22 @@ fn approximate_thin_rectangle(builder: &mut StrokeBuilder, rect: &Box2D, attribu
     builder.builder.options = options;
 }
 
-struct PointBuffer {
-    points: [EndpointData; 3],
+struct PointBuffer<T = EndpointData> {
+    points: [T; 3],
     start: usize,
     count: usize,
 }
 
-impl PointBuffer {
+impl<T: Copy + Default> PointBuffer<T> {
     fn new() -> Self {
         PointBuffer {
-            points: [EndpointData::default(); 3],
+            points: [T::default(); 3],
             start: 0,
             count: 0,
         }
     }
 
-    fn push(&mut self, point: EndpointData) {
+    fn push(&mut self, point: T) {
         if self.count < 3 {
             self.points[self.count] = point;
             self.count += 1;
@@ -2395,7 +3191,7 @@ impl PointBuffer {
         }
     }
 
-    fn replace_last(&mut self, point: EndpointData) {
+    fn replace_last(&mut self, point: T) {
         let mut idx = self.start;
         if idx == 0 {
             idx = self.count;
@@ -2412,36 +3208,41 @@ impl PointBuffer {
         self.count
     }
 
-    fn get(&self, idx: usize) -> &EndpointData {
+    fn get(&self, idx: usize) -> &T {
         assert!(idx < self.count);
         let idx = (idx + self.start) % 3;
 
         &self.points[idx]
     }
 
-    fn get_reverse(&self, idx: usize) -> &EndpointData {
+    fn get_reverse(&self, idx: usize) -> &T {
         assert!(idx < self.count);
         self.get(self.count - 1 - idx)
     }
 
-    fn get_mut(&mut self, idx: usize) -> &mut EndpointData {
+    fn get_mut(&mut self, idx: usize) -> &mut T {
         assert!(idx < self.count);
         let idx = (idx + self.start) % 3;
 
         &mut self.points[idx]
     }
 
-    fn last(&self) -> &EndpointData {
+    fn last(&self) -> &T {
         assert!(self.count > 0);
         self.get(self.count - 1)
     }
 
-    fn last_mut(&mut self) -> &mut EndpointData {
+    fn last_mut(&mut self) -> &mut T {
         assert!(self.count > 0);
         self.get_mut(self.count - 1)
     }
 
-    fn last_two_mut(&mut self) -> (&mut EndpointData, &mut EndpointData) {
+    fn last_two(&self) -> (&T, &T) {
+        assert!(self.count >= 2);
+        (self.get_reverse(1), self.get_reverse(0))
+    }
+
+    fn last_two_mut(&mut self) -> (&mut T, &mut T) {
         assert!(self.count >= 2);
         let i0 = (self.start + self.count - 1) % 3;
         let i1 = (self.start + self.count - 2) % 3;
@@ -2465,7 +3266,7 @@ pub(crate) fn tessellate_round_cap(
     is_start: bool,
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) -> Result<(), TessellationError> {
     if radius < options.tolerance {
         return Ok(());
@@ -2523,7 +3324,7 @@ pub(crate) fn tessellate_empty_square_cap(
     position: Point,
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) -> Result<(), TessellationError> {
     vertex.position_on_path = position;
 
@@ -2558,7 +3359,7 @@ pub(crate) fn tessellate_empty_round_cap(
     options: &StrokeOptions,
     vertex: &mut StrokeVertexData,
     attribute_store: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) -> Result<(), TessellationError> {
     let radius = vertex.half_width;
 
@@ -2612,7 +3413,7 @@ pub(crate) fn tessellate_arc(
     num_recursions: u32,
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
-    output: &mut dyn StrokeGeometryBuilder,
+    output: &mut (impl StrokeGeometryBuilder + ?Sized),
 ) -> Result<(), TessellationError> {
     if num_recursions == 0 {
         return Ok(());
@@ -2677,6 +3478,7 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
     ///
     /// The length of the provided normal is such that displacing the vertex along it
     /// inflates the stroke by 2.0 (1.0 on each side).
+    /// It can be zero for a clipped join vertex located on the path itself.
     #[inline]
     pub fn normal(&self) -> Vector {
         self.0.normal
@@ -2832,7 +3634,6 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
             assert!(!attributes.position().y.is_nan());
             assert!(!attributes.normal().x.is_nan());
             assert!(!attributes.normal().y.is_nan());
-            assert_ne!(attributes.normal().square_length(), 0.0);
             assert!(!attributes.advancement().is_nan());
             self.builder.add_stroke_vertex(attributes)
         }
@@ -2857,6 +3658,22 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
             "Unexpected number of triangles"
         );
     }
+}
+
+#[cfg(test)]
+fn mesh_contains_point(mesh: &VertexBuffers<Point, u16>, point: Point) -> bool {
+    mesh.indices.chunks_exact(3).any(|triangle| {
+        let a = mesh.vertices[triangle[0] as usize];
+        let b = mesh.vertices[triangle[1] as usize];
+        let c = mesh.vertices[triangle[2] as usize];
+        let ab = (b - a).cross(point - a);
+        let bc = (c - b).cross(point - b);
+        let ca = (a - c).cross(point - c);
+        let epsilon = 1.0e-6;
+
+        (ab >= -epsilon && bc >= -epsilon && ca >= -epsilon)
+            || (ab <= epsilon && bc <= epsilon && ca <= epsilon)
+    })
 }
 
 #[test]
@@ -2918,6 +3735,365 @@ fn test_square() {
             None,
         );
     }
+}
+
+#[test]
+fn arcs_join_records_curve_differentials_before_flattening() {
+    let mut builder = Path::builder_with_attributes(1);
+    builder.begin(point(0.0, 0.0), &[1.0]);
+    builder.line_to(point(10.0, 0.0), &[1.0]);
+    builder.quadratic_bezier_to(point(10.0, 5.0), point(15.0, 5.0), &[1.0]);
+    builder.cubic_bezier_to(
+        point(20.0, 5.0),
+        point(20.0, 10.0),
+        point(15.0, 10.0),
+        &[1.0],
+    );
+    builder.end(false);
+    let path = builder.build();
+
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default()
+            .with_line_join(LineJoin::Arcs)
+            .with_variable_line_width(0),
+        None,
+    );
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default().with_line_join(LineJoin::Arcs),
+        None,
+    );
+}
+
+#[test]
+fn arcs_join_preserves_differentials_between_quadratic_segments() {
+    let mut builder = Path::builder();
+    builder.begin(point(0.0, 0.0));
+    builder.quadratic_bezier_to(point(4.0, 24.0), point(12.0, 10.0));
+    builder.quadratic_bezier_to(point(16.0, -24.0), point(24.0, -10.0));
+    builder.end(false);
+    let path = builder.build();
+    let options = StrokeOptions::default()
+        .with_line_width(8.0)
+        .with_tolerance(0.1);
+    let mut arcs_mesh: VertexBuffers<Point, u16> = VertexBuffers::new();
+    let mut round_mesh: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+    StrokeTessellator::new()
+        .tessellate_path(
+            &path,
+            &options.with_line_join(LineJoin::Arcs),
+            &mut simple_builder(&mut arcs_mesh),
+        )
+        .expect("the curve-to-curve arcs join should tessellate");
+    StrokeTessellator::new()
+        .tessellate_path(
+            &path,
+            &options.with_line_join(LineJoin::Round),
+            &mut simple_builder(&mut round_mesh),
+        )
+        .expect("the round comparison should tessellate");
+
+    assert_ne!(arcs_mesh.vertices, round_mesh.vertices);
+}
+
+#[test]
+fn endpoint_data_stays_within_the_hot_path_size_budget() {
+    assert!(core::mem::size_of::<EndpointData>() <= 112);
+}
+
+#[test]
+fn arcs_join_records_the_implicit_closing_line() {
+    let mut builder = Path::builder();
+    builder.begin(point(0.0, 0.0));
+    builder.line_to(point(10.0, 0.0));
+    builder.line_to(point(0.0, 10.0));
+    builder.end(true);
+    let path = builder.build();
+
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default().with_line_join(LineJoin::Arcs),
+        None,
+    );
+}
+
+#[test]
+fn cubic_differentials_preserve_signed_endpoint_curvature() {
+    let curve = CubicBezierSegment {
+        from: point(0.0, 0.0),
+        ctrl1: point(1.0, 0.0),
+        ctrl2: point(1.0, 1.0),
+        to: point(0.0, 1.0),
+    };
+
+    let differentials = cubic_differentials(&curve);
+
+    let EndpointDifferential::Regular {
+        unit_tangent: start_tangent,
+        curvature: start_curvature,
+    } = differentials.start
+    else {
+        panic!("the cubic start should be regular");
+    };
+    let EndpointDifferential::Regular {
+        unit_tangent: end_tangent,
+        curvature: end_curvature,
+    } = differentials.end
+    else {
+        panic!("the cubic end should be regular");
+    };
+    assert_eq!(start_tangent, vector(1.0, 0.0));
+    assert_eq!(end_tangent, vector(-1.0, 0.0));
+    assert!((start_curvature - 2.0 / 3.0).abs() < 1e-12);
+    assert!((end_curvature - 2.0 / 3.0).abs() < 1e-12);
+}
+
+#[test]
+fn arcs_join_resolves_endpoint_differentials_into_support_geometry() {
+    let join = EndpointData {
+        position: point(10.0, 5.0),
+        half_width: 2.0,
+        line_join: LineJoin::Arcs,
+        ..EndpointData::default()
+    };
+    let differentials = EndpointDifferentials {
+        incoming: EndpointDifferential::Regular {
+            unit_tangent: vector(1.0, 0.0),
+            curvature: 0.0,
+        },
+        outgoing: EndpointDifferential::Regular {
+            unit_tangent: vector(0.0, 1.0),
+            curvature: 0.1,
+        },
+    };
+
+    let resolution = resolve_arcs_join(&join, differentials, &StrokeOptions::default());
+
+    assert!(matches!(resolution, Ok(JoinConstruction::Arcs(_))));
+}
+
+#[test]
+fn arcs_join_emits_a_different_mesh_than_round_for_both_turn_directions() {
+    let options = StrokeOptions::default()
+        .with_line_width(4.0)
+        .with_tolerance(0.01);
+
+    for outgoing_y in [8.0, -8.0] {
+        let mut path = Path::builder();
+        path.begin(point(0.0, 0.0));
+        path.line_to(point(10.0, 0.0));
+        path.quadratic_bezier_to(point(10.0, outgoing_y), point(18.0, outgoing_y));
+        path.end(false);
+        let path = path.build();
+        let mut arcs_mesh: VertexBuffers<Point, u16> = VertexBuffers::new();
+        let mut round_mesh: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+        StrokeTessellator::new()
+            .tessellate_path(
+                &path,
+                &options.with_line_join(LineJoin::Arcs),
+                &mut simple_builder(&mut arcs_mesh),
+            )
+            .expect("the arcs join should tessellate");
+        StrokeTessellator::new()
+            .tessellate_path(
+                &path,
+                &options.with_line_join(LineJoin::Round),
+                &mut simple_builder(&mut round_mesh),
+            )
+            .expect("the round join should tessellate");
+
+        assert_ne!(arcs_mesh.vertices, round_mesh.vertices);
+    }
+}
+
+#[test]
+fn shallow_arcs_join_does_not_silently_become_round() {
+    let mut path = Path::builder();
+    path.begin(point(0.0, 0.0));
+    path.line_to(point(10.0, 0.0));
+    path.cubic_bezier_to(point(13.0, 0.2), point(16.0, 1.0), point(19.0, 1.5));
+    path.end(false);
+    let path = path.build();
+    let options = StrokeOptions::default()
+        .with_line_width(4.0)
+        .with_tolerance(0.01);
+    let mut arcs_mesh: VertexBuffers<Point, u16> = VertexBuffers::new();
+    let mut round_mesh: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+    StrokeTessellator::new()
+        .tessellate_path(
+            &path,
+            &options.with_line_join(LineJoin::Arcs),
+            &mut simple_builder(&mut arcs_mesh),
+        )
+        .expect("the shallow arcs join should tessellate");
+    StrokeTessellator::new()
+        .tessellate_path(
+            &path,
+            &options.with_line_join(LineJoin::Round),
+            &mut simple_builder(&mut round_mesh),
+        )
+        .expect("the round comparison should tessellate");
+
+    assert_ne!(arcs_mesh.vertices, round_mesh.vertices);
+}
+
+#[test]
+fn arcs_join_emits_the_svg_rectangle_for_opposite_parallel_tangents() {
+    let mut path = Path::builder();
+    path.begin(point(0.0, 0.0));
+    path.line_to(point(10.0, 0.0));
+    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 8.0));
+    path.end(false);
+    let path = path.build();
+    let options = StrokeOptions::default()
+        .with_line_width(4.0)
+        .with_miter_limit(3.0)
+        .with_line_join(LineJoin::Arcs);
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+    StrokeTessellator::new()
+        .tessellate_path(&path, &options, &mut simple_builder(&mut buffers))
+        .expect("the parallel arcs fallback should tessellate");
+
+    let far_left = point(16.0, 2.0);
+    let far_right = point(16.0, -2.0);
+    assert!(
+        buffers
+            .vertices
+            .iter()
+            .any(|position| (*position - far_left).square_length() < 1.0e-6)
+            && buffers
+                .vertices
+                .iter()
+                .any(|position| (*position - far_right).square_length() < 1.0e-6)
+    );
+}
+
+#[test]
+fn arcs_join_emits_radial_clips_for_sub_unit_miter_limits() {
+    let options = StrokeOptions::default()
+        .with_line_width(4.0)
+        .with_miter_limit(0.5)
+        .with_line_join(LineJoin::Arcs);
+
+    for outgoing_y in [8.0, -8.0] {
+        let mut path = Path::builder();
+        path.begin(point(0.0, 0.0));
+        path.line_to(point(10.0, 0.0));
+        path.quadratic_bezier_to(point(10.0, outgoing_y), point(18.0, outgoing_y));
+        path.end(false);
+        let path = path.build();
+        let curve = QuadraticBezierSegment {
+            from: point(10.0, 0.0),
+            ctrl: point(10.0, outgoing_y),
+            to: point(18.0, outgoing_y),
+        };
+        let EndpointDifferential::Regular {
+            unit_tangent: tangent,
+            curvature,
+        } = quadratic_differentials(&curve).start
+        else {
+            panic!("the quadratic start should be regular");
+        };
+        let expected = stroke_arcs::construct(JoinInput {
+            at: Point64::new(10.0, 0.0),
+            incoming: SegmentEnd {
+                tangent: Vector64::new(1.0, 0.0),
+                curvature: 0.0,
+            },
+            outgoing: SegmentEnd {
+                tangent: Vector64::new(f64::from(tangent.x), f64::from(tangent.y)),
+                curvature,
+            },
+            half_width: 2.0,
+            miter_limit: 0.5,
+        })
+        .expect("the radial clip should resolve");
+        let JoinConstruction::RadialClip(expected) = expected else {
+            panic!("the sub-unit miter limit should select a radial clip");
+        };
+        let expected_incoming = point64_to_point(expected.incoming).expect("finite clip point");
+        let expected_outgoing = point64_to_point(expected.outgoing).expect("finite clip point");
+        let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+        StrokeTessellator::new()
+            .tessellate_path(&path, &options, &mut simple_builder(&mut buffers))
+            .expect("the radial arcs clip should tessellate");
+
+        assert!(
+            buffers
+                .vertices
+                .iter()
+                .any(|position| (*position - expected_incoming).square_length() < 1.0e-6)
+                && buffers
+                    .vertices
+                    .iter()
+                    .any(|position| (*position - expected_outgoing).square_length() < 1.0e-6)
+        );
+        let clipped_corner = point(11.5, -outgoing_y.signum() * 1.5);
+        assert!(!mesh_contains_point(&buffers, clipped_corner));
+    }
+}
+
+#[test]
+fn arcs_join_supports_a_zero_miter_limit() {
+    let options = StrokeOptions::default()
+        .with_line_width(4.0)
+        .with_miter_limit(0.0)
+        .with_line_join(LineJoin::Arcs);
+
+    for outgoing_y in [8.0, -8.0] {
+        let mut path = Path::builder();
+        path.begin(point(0.0, 0.0));
+        path.line_to(point(10.0, 0.0));
+        path.quadratic_bezier_to(point(10.0, outgoing_y), point(18.0, outgoing_y));
+        path.end(false);
+        let path = path.build();
+
+        test_path(path.as_slice(), &options, None);
+    }
+}
+
+#[test]
+fn arcs_join_keeps_explicit_svg_fallback_states() {
+    let mut join = EndpointData {
+        half_width: 2.0,
+        line_join: LineJoin::Arcs,
+        ..EndpointData::default()
+    };
+    let line_differentials = EndpointDifferentials {
+        incoming: EndpointDifferential::Regular {
+            unit_tangent: vector(1.0, 0.0),
+            curvature: 0.0,
+        },
+        outgoing: EndpointDifferential::Regular {
+            unit_tangent: vector(0.0, 1.0),
+            curvature: 0.0,
+        },
+    };
+
+    let options = StrokeOptions::default();
+    let line_join = resolve_arcs_join(&join, line_differentials, &options);
+    let line_geometry = prepare_arcs_join(&mut join, line_differentials, &options);
+    let applied_line_fallback = join.line_join;
+    join.line_join = LineJoin::Arcs;
+    let degenerate_differentials = EndpointDifferentials {
+        outgoing: EndpointDifferential::Degenerate,
+        ..line_differentials
+    };
+    let degenerate_join = resolve_arcs_join(&join, degenerate_differentials, &options);
+    let degenerate_geometry = prepare_arcs_join(&mut join, degenerate_differentials, &options);
+
+    assert!(matches!(line_join, Ok(JoinConstruction::MiterClip)));
+    assert!(line_geometry.is_none());
+    assert_eq!(applied_line_fallback, LineJoin::MiterClip);
+    assert!(degenerate_join.is_err());
+    assert!(degenerate_geometry.is_none());
+    assert_eq!(join.line_join, LineJoin::Round);
 }
 
 #[test]
