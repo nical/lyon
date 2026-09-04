@@ -365,6 +365,23 @@ pub struct ResolvedArcsJoin {
 }
 
 impl ResolvedArcsJoin {
+    pub(crate) fn clip_endpoints(&self) -> Option<[Point64; 2]> {
+        self.clipped.then(|| {
+            [
+                boundary_end(self.incoming_boundary),
+                boundary_end(self.outgoing_boundary),
+            ]
+        })
+    }
+
+    /// Both directions point from the retained boundary towards the cut.
+    pub(crate) fn clip_tangents(&self) -> [Vector64; 2] {
+        [
+            boundary_end_tangent(self.incoming_boundary),
+            boundary_end_tangent(self.outgoing_boundary),
+        ]
+    }
+
     pub(crate) fn turn(&self) -> TurnSide {
         self.turn
     }
@@ -1068,6 +1085,16 @@ fn boundary_end(boundary: BoundaryPiece) -> Point64 {
     match boundary {
         BoundaryPiece::Line { end, .. } | BoundaryPiece::Arc { end, .. } => end,
     }
+}
+
+fn boundary_end_tangent(boundary: BoundaryPiece) -> Vector64 {
+    let tangent = match boundary {
+        BoundaryPiece::Line { start, end } => end - start,
+        BoundaryPiece::Arc {
+            end, center, sweep, ..
+        } => (end - center).left_normal() * if sweep.counter_clockwise() { 1.0 } else { -1.0 },
+    };
+    tangent * tangent.square_length().sqrt().recip()
 }
 
 fn boundary_start(boundary: BoundaryPiece) -> Point64 {

@@ -29,3 +29,4 @@ num-traits = { version = "0.2.15", default-features = false, features = ["libm"]
 
 [dev-dependencies]
 lyon_extra = { version = "1.0.0", path = "../extra" }
+serde_json = "1.0"

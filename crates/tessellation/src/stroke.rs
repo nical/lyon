@@ -18,7 +18,7 @@ use crate::stroke_arcs::{
 };
 use crate::stroke_arcs_mesh::{ArcsMesh, ArcsOutput, ValidatedFan};
 use crate::{
-    LineCap, LineJoin, Side, SimpleAttributeStore, StrokeGeometryBuilder, StrokeOptions,
+    ArcsClip, LineCap, LineJoin, Side, SimpleAttributeStore, StrokeGeometryBuilder, StrokeOptions,
     TessellationError, TessellationResult, VertexId, VertexSource,
 };
 
@@ -27,6 +27,9 @@ use alloc::vec::Vec;
 
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
+
+#[path = "stroke_round_clip.rs"]
+mod round_clip;
 
 const SIDE_POSITIVE: usize = 0;
 const SIDE_NEGATIVE: usize = 1;
@@ -1773,6 +1776,7 @@ impl<'l, Output: StrokeGeometryBuilder + ?Sized> StrokeBuilderImpl<'l, Output> {
 
                 tessellate_join(
                     join,
+                    [prev, &next],
                     arcs_join.as_ref(),
                     &self.options,
                     &mut self.arcs.mesh,
@@ -1921,6 +1925,7 @@ impl<'l, Output: StrokeGeometryBuilder + ?Sized> StrokeBuilderImpl<'l, Output> {
 
             tessellate_join(
                 join,
+                [prev, &next],
                 arcs_join.as_ref(),
                 &self.options,
                 &mut self.arcs.mesh,
@@ -2419,6 +2424,7 @@ fn point64_to_point(value: Point64) -> Result<Point, ArcsJoinFallback> {
 
 fn tessellate_join(
     join: &mut EndpointData,
+    neighbors: [&EndpointData; 2],
     arcs_join: Option<&PreparedArcsJoin>,
     options: &StrokeOptions,
     arcs_mesh: &mut ArcsMesh,
@@ -2431,11 +2437,43 @@ fn tessellate_join(
 
     if let Some(PreparedArcsJoin::ParallelRectangle(rectangle)) = arcs_join {
         emit_parallel_arcs_rectangle(join, rectangle, vertex, attributes, output)?;
+        if options.arcs_clip == ArcsClip::Round && options.miter_limit > 0.0 {
+            round_clip::emit(
+                join,
+                [rectangle.far_left, rectangle.far_right],
+                [
+                    rectangle.far_left - rectangle.near_left,
+                    rectangle.far_right - rectangle.near_right,
+                ]
+                .map(round_clip::vector64),
+                SIDE_POSITIVE,
+                options.tolerance,
+                vertex,
+                attributes,
+                output,
+            )?;
+        }
         return Ok(());
     }
 
     if let Some(PreparedArcsJoin::RadialClip(radial_clip)) = arcs_join {
         if emit_radial_arcs_clip(join, radial_clip, vertex, attributes, output)? {
+            if options.arcs_clip == ArcsClip::Round {
+                round_clip::emit(
+                    join,
+                    [radial_clip.incoming, radial_clip.outgoing],
+                    [
+                        radial_clip.incoming - join.position,
+                        radial_clip.outgoing - join.position,
+                    ]
+                    .map(round_clip::vector64),
+                    arcs_outer_side(radial_clip.turn),
+                    options.tolerance,
+                    vertex,
+                    attributes,
+                    output,
+                )?;
+            }
             return Ok(());
         }
     }
@@ -2506,9 +2544,48 @@ fn tessellate_join(
                 } else {
                     false
                 };
+                if emitted && options.arcs_clip == ArcsClip::Round {
+                    if let Some(PreparedArcsJoin::Curved(resolved)) = arcs_join {
+                        if let Some(ends) = resolved.clip_endpoints() {
+                            let ends = [point64_to_point(ends[0]), point64_to_point(ends[1])];
+                            if let [Ok(a), Ok(b)] = ends {
+                                round_clip::emit(
+                                    join,
+                                    [a, b],
+                                    resolved.clip_tangents(),
+                                    side,
+                                    options.tolerance,
+                                    vertex,
+                                    attributes,
+                                    output,
+                                )?;
+                            }
+                        }
+                    }
+                }
                 if !emitted {
                     tessellate_round_join(join, side, options, vertex, attributes, output)?;
                 }
+            }
+            LineJoin::MiterClip
+                if options.line_join == LineJoin::Arcs
+                    && options.arcs_clip == ArcsClip::Round =>
+            {
+                // A surviving pair of distinct outer vertices is the actual
+                // miter cut. Unclipped miters have a single shared vertex.
+                round_clip::emit(
+                    join,
+                    [join.side_points[side].prev, join.side_points[side].next],
+                    [
+                        round_clip::edge_tangent(neighbors[0], join, side),
+                        -round_clip::edge_tangent(join, neighbors[1], side),
+                    ],
+                    side,
+                    options.tolerance,
+                    vertex,
+                    attributes,
+                    output,
+                )?;
             }
             _ => {}
         }

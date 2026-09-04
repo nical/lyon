@@ -4,32 +4,37 @@ use bencher::Bencher;
 use lyon::math::{point, Point};
 use lyon::path::Path;
 use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers};
-use lyon::tessellation::{LineJoin, StrokeOptions, StrokeTessellator};
+use lyon::tessellation::{ArcsClip, LineJoin, StrokeOptions, StrokeTessellator};
 
 fn arcs_curved(bench: &mut Bencher) {
-    run(bench, false, LineJoin::Arcs, 4.0);
+    run(bench, false, LineJoin::Arcs, 4.0, ArcsClip::Butt);
 }
 
 fn arcs_clipped(bench: &mut Bencher) {
-    run(bench, false, LineJoin::Arcs, 1.5);
+    run(bench, false, LineJoin::Arcs, 1.5, ArcsClip::Butt);
+}
+
+fn arcs_round_clip(bench: &mut Bencher) {
+    run(bench, false, LineJoin::Arcs, 1.5, ArcsClip::Round);
 }
 
 fn arcs_lines(bench: &mut Bencher) {
-    run(bench, true, LineJoin::Arcs, 4.0);
+    run(bench, true, LineJoin::Arcs, 4.0, ArcsClip::Butt);
 }
 
 fn round_curved(bench: &mut Bencher) {
-    run(bench, false, LineJoin::Round, 4.0);
+    run(bench, false, LineJoin::Round, 4.0, ArcsClip::Butt);
 }
 
 fn miter_clip_lines(bench: &mut Bencher) {
-    run(bench, true, LineJoin::MiterClip, 4.0);
+    run(bench, true, LineJoin::MiterClip, 4.0, ArcsClip::Butt);
 }
 
-fn run(bench: &mut Bencher, lines: bool, join: LineJoin, limit: f32) {
+fn run(bench: &mut Bencher, lines: bool, join: LineJoin, limit: f32, clip: ArcsClip) {
     let path = path(lines);
     let options = StrokeOptions::default()
         .with_line_join(join)
+        .with_arcs_clip(clip)
         .with_line_width(8.0)
         .with_miter_limit(limit)
         .with_tolerance(0.1);
@@ -72,6 +77,7 @@ fn path(lines: bool) -> Path {
 benchmark_group!(
     arcs_tess,
     arcs_curved,
+    arcs_round_clip,
     arcs_clipped,
     arcs_lines,
     round_curved,

@@ -310,6 +310,23 @@ pub enum Orientation {
     Vertical,
 }
 
+/// Shape of miter-limit cuts for [`LineJoin::Arcs`].
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[non_exhaustive]
+pub enum ArcsClip {
+    /// A flat cut, as specified by SVG 2.
+    #[default]
+    Butt,
+    /// An experimental, tangent-continuous rounded cut.
+    ///
+    /// The tip is fitted to the two cut-edge directions; it is not necessarily
+    /// a semicircle. It may extend beyond the miter limit. Invalid or non-convex
+    /// fits keep the flat cut. Unclipped joins and round fallbacks are unchanged.
+    /// This is a Lyon extension, not SVG behavior.
+    Round,
+}
+
 /// Parameters for the tessellator.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -352,6 +369,12 @@ pub struct StrokeOptions {
     /// See [Flattening and tolerance](index.html#flattening-and-tolerance).
     /// Default value: `StrokeOptions::DEFAULT_TOLERANCE`.
     pub tolerance: f32,
+
+    /// Shape of miter-limit cuts, used only with [`LineJoin::Arcs`].
+    ///
+    /// Defaults to [`ArcsClip::Butt`] (SVG 2). Independent of the path end caps.
+    #[cfg_attr(feature = "serialization", serde(default))]
+    pub arcs_clip: ArcsClip,
 }
 
 impl StrokeOptions {
@@ -376,6 +399,7 @@ impl StrokeOptions {
         variable_line_width: None,
         miter_limit: Self::DEFAULT_MITER_LIMIT,
         tolerance: Self::DEFAULT_TOLERANCE,
+        arcs_clip: ArcsClip::Butt,
     };
 
     #[inline]
@@ -411,6 +435,20 @@ impl StrokeOptions {
     #[inline]
     pub const fn with_line_join(mut self, join: LineJoin) -> Self {
         self.line_join = join;
+        self
+    }
+
+    /// Sets the shape of miter-limit cuts for [`LineJoin::Arcs`].
+    ///
+    /// ```
+    /// use lyon_tessellation::{ArcsClip, LineJoin, StrokeOptions};
+    /// let options = StrokeOptions::default()
+    ///     .with_line_join(LineJoin::Arcs)
+    ///     .with_arcs_clip(ArcsClip::Round);
+    /// ```
+    #[inline]
+    pub const fn with_arcs_clip(mut self, clip: ArcsClip) -> Self {
+        self.arcs_clip = clip;
         self
     }
 
