@@ -2501,3 +2501,57 @@ fn test_triangle_winding() {
     )
     .unwrap();
 }
+
+// Sweeping this path runs into an internal error. Error recovery must not
+// leave a merge vertex as the first active edge.
+#[test]
+fn issue_963_1() {
+    let a = [
+        (5.498809e2, 1.6776793e7),
+        (5.581379e2, 1.6776795e7),
+        (5.498809e2, 1.6776793e7),
+        (-1.1754944e-38, 1.6777215e7),
+    ];
+    let b = [
+        (1.2064563e7, 1.2452183e7),
+        (1.6776785e1, 1.6743695e7),
+        (0.0, 1.6777215e7),
+    ];
+
+    let mut builder = Path::builder();
+    for contour in [&a[..], &b[..]] {
+        builder.begin(point(contour[0].0, contour[0].1));
+        for p in &contour[1..] {
+            builder.line_to(point(p.0, p.1));
+        }
+        builder.close();
+    }
+    let path = builder.build();
+
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+    let mut tess = FillTessellator::new();
+    tess.tessellate_path(
+        &path,
+        &FillOptions::default().with_fill_rule(FillRule::NonZero),
+        &mut simple_builder(&mut buffers),
+    )
+    .unwrap();
+}
+
+// Same failure as issue_963 with a single contour.
+#[test]
+fn issue_963_2() {
+    let mut builder = Path::builder();
+    builder.begin(point(3669135.8, 4760474.5));
+    builder.line_to(point(3669135.8, 3669135.8));
+    builder.line_to(point(3669135.8, 4760474.5));
+    builder.line_to(point(5290038.5, 3154107.0));
+    builder.line_to(point(4760475.0, 3669135.8));
+    builder.line_to(point(3154105.3, 3154105.3));
+    builder.line_to(point(4760475.0, 4760475.0));
+    builder.line_to(point(3154105.3, 4760474.5));
+    builder.line_to(point(4760475.0, 4760474.5));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}

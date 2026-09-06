@@ -1921,32 +1921,66 @@ impl FillTessellator {
             return;
         }
 
+        let num_edges = self.active.edges.len();
         let mut winding_number = 0;
-        for i in 0..self.active.edges.len() {
-            let needs_swap = {
-                let edge = &self.active.edges[i];
-                if edge.is_merge {
-                    !self.fill_rule.is_in(winding_number)
-                } else {
-                    winding_number += edge.winding;
-                    false
+        let mut i = 0;
+        while i < num_edges {
+            if !self.active.edges[i].is_merge {
+                winding_number += self.active.edges[i].winding;
+                i += 1;
+                continue;
+            }
+
+            if self.fill_rule.is_in(winding_number) {
+                i += 1;
+                continue;
+            }
+
+            tess_log!(self, "Fixing up merge vertex after sort.");
+
+            // Look for the closest position at which the merge vertex is inside
+            // the shape, first towards the left and then towards the right.
+            // Index zero is not a candidate since the winding number before the
+            // first active edge is always zero (outside).
+            let mut target = None;
+            let mut w = winding_number;
+            for idx in (1..i).rev() {
+                // Roll back the winding of the edge the merge vertex moves past.
+                w -= self.active.edges[idx].winding;
+                if self.fill_rule.is_in(w) {
+                    target = Some(idx);
+                    break;
                 }
-            };
+            }
 
-            if needs_swap {
-                let mut w = winding_number;
-                tess_log!(self, "Fixing up merge vertex after sort.");
-                let mut idx = i;
-                while idx > 0 {
-                    // Roll back previous edge winding and swap.
-                    w -= self.active.edges[idx - 1].winding;
-                    self.active.edges.swap(idx, idx - 1);
+            if let Some(idx) = target {
+                self.active.edges[idx..=i].rotate_right(1);
+                // The set of edges in 0..=i did not change, so the winding number
+                // after this position is still the same.
+                i += 1;
+                continue;
+            }
 
-                    if self.fill_rule.is_in(w) {
-                        break;
-                    }
+            let mut w = winding_number;
+            for idx in (i + 1)..num_edges {
+                w += self.active.edges[idx].winding;
+                if self.fill_rule.is_in(w) {
+                    target = Some(idx);
+                    break;
+                }
+            }
 
-                    idx -= 1;
+            match target {
+                Some(idx) => {
+                    self.active.edges[i..=idx].rotate_left(1);
+                    // Continue from the same index: the edges that the merge
+                    // vertex moved past have not been counted in the winding
+                    // number yet.
+                }
+                // The merge vertex is outside of the shape wherever it is
+                // placed. Leave it where it is.
+                None => {
+                    i += 1;
                 }
             }
         }
