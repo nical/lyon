@@ -1314,6 +1314,14 @@ impl FillTessellator {
                 continue;
             }
 
+            let min_x = active_edge.min_x();
+
+            if min_x > current_x {
+                // The edge is entirely to the right of the current point. None of the
+                // ordering checks below can fire in that case.
+                continue;
+            }
+
             if active_edge.max_x() < current_x {
                 return Err(InternalError::IncorrectActiveEdgeOrder(1));
             }
@@ -1322,8 +1330,7 @@ impl FillTessellator {
                 return Err(InternalError::IncorrectActiveEdgeOrder(2));
             }
 
-            if active_edge.min_x() < current_x
-                && active_edge.solve_x_for_y(self.current_position.y) < current_x
+            if min_x < current_x && active_edge.solve_x_for_y(self.current_position.y) < current_x
             {
                 return Err(InternalError::IncorrectActiveEdgeOrder(3));
             }
