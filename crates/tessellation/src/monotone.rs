@@ -358,16 +358,29 @@ impl AdvancedMonotoneTessellator {
     }
 }
 
-#[inline(never)]
+/// A side with fewer than two events has nothing to triangulate. That is a
+/// common case, so the check is inlined at the call sites and only the actual
+/// triangulation is out of line.
+#[inline]
 fn flush_side(
     side: &mut SideEvents,
     s: Side,
     tess: &mut BasicMonotoneTessellator,
 ) -> Option<MonotoneVertex> {
-    let len = side.events.len();
-    if len < 2 {
+    if side.events.len() < 2 {
         return None;
     }
+
+    flush_side_impl(side, s, tess)
+}
+
+#[inline(never)]
+fn flush_side_impl(
+    side: &mut SideEvents,
+    s: Side,
+    tess: &mut BasicMonotoneTessellator,
+) -> Option<MonotoneVertex> {
+    let len = side.events.len();
 
     let mut step = 1;
     while step * 2 < len {
