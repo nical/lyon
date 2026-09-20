@@ -1546,18 +1546,30 @@ impl FillTessellator {
 
         let from = self.current_position;
         let from_id = self.current_vertex;
-        self.active.edges.splice(
-            above,
-            self.edges_below.drain(..).map(|edge| ActiveEdge {
-                from,
-                to: edge.to,
-                winding: edge.winding,
-                is_merge: false,
-                from_id,
-                src_edge: edge.src_edge,
-                range_end: edge.range_end,
-            }),
-        );
+
+        let make_edge = |edge: PendingEdge| ActiveEdge {
+            from,
+            to: edge.to,
+            winding: edge.winding,
+            is_merge: false,
+            from_id,
+            src_edge: edge.src_edge,
+            range_end: edge.range_end,
+        };
+
+        // Fast path: when as many edges start below as there are edges ending above
+        // (the common case for regular vertices), we can overwrite the slots in place
+        // and avoid `Vec::splice` shifting the tail of the active edge list.
+        if self.edges_below.len() == above.end - above.start {
+            let slots = &mut self.active.edges[above];
+            for (slot, edge) in slots.iter_mut().zip(self.edges_below.drain(..)) {
+                *slot = make_edge(edge);
+            }
+        } else {
+            self.active
+                .edges
+                .splice(above, self.edges_below.drain(..).map(make_edge));
+        }
     }
 
     fn split_event(&mut self, left_enclosing_edge_idx: ActiveEdgeIdx, left_span_idx: SpanIdx) {
