@@ -1628,6 +1628,59 @@ impl FillTessellator {
         );
     }
 
+/// Looks for the closest intersection between the pending edge described by
+/// `below_min_x`/`below_max_x`/`below_segment` and the active edges in `range`.
+///
+/// `tb_min` and `intersection` carry the best candidate found so far so that
+/// callers can search several ranges (in particular skipping a range) while
+/// still keeping the globally closest intersection.
+#[inline(always)]
+fn consider_edges_for_intersection(
+    active: &[ActiveEdge],
+    range: Range<usize>,
+    below_min_x: f32,
+    below_max_x: f32,
+    below_segment: &LineSegment<f64>,
+    tb_min: &mut f64,
+    intersection: &mut Option<(f64, f64, usize)>,
+) {
+    for i in range {
+        let active_edge = &active[i];
+        if active_edge.is_merge || below_min_x > active_edge.max_x() {
+            continue;
+        }
+
+        if below_max_x < active_edge.min_x() {
+            // We can't early out because there might be edges further on the right
+            // that extend further on the left which would be missed.
+            //
+            // sweep line -> =o===/==/==
+            //                |\ /  /
+            //                | o  /
+            //  edge below -> |   /
+            //                |  /
+            //                | / <- missed active edge
+            //                |/
+            //                x <- missed intersection
+            //               /|
+            continue;
+        }
+
+        let active_segment = LineSegment {
+            from: active_edge.from.to_f64(),
+            to: active_edge.to.to_f64(),
+        };
+
+        if let Some((ta, tb)) = active_segment.intersection_t(below_segment) {
+            if tb < *tb_min && tb > 0.0 && ta > 0.0 && ta <= 1.0 {
+                // we only want the closest intersection;
+                *tb_min = tb;
+                *intersection = Some((ta, tb, i));
+            }
+        }
+    }
+}
+
     #[cfg_attr(feature = "profiling", inline(never))]
     fn handle_intersections(&mut self, skip_range: Range<usize>) {
         // Do intersection checks for all of the new edges against already active edges.
@@ -1659,42 +1712,31 @@ impl FillTessellator {
 
             let mut tb_min = 1.0;
             let mut intersection = None;
-            for (i, active_edge) in self.active.edges.iter().enumerate() {
-                if skip_range.contains(&i) {
-                    continue;
-                }
-                if active_edge.is_merge || below_min_x > active_edge.max_x() {
-                    continue;
-                }
+            {
+                let active = &self.active.edges;
+                let skip_start = skip_range.start.min(active.len());
+                let skip_end = skip_range.end.min(active.len());
 
-                if below_max_x < active_edge.min_x() {
-                    // We can't early out because there might be edges further on the right
-                    // that extend further on the left which would be missed.
-                    //
-                    // sweep line -> =o===/==/==
-                    //                |\ /  /
-                    //                | o  /
-                    //  edge below -> |   /
-                    //                |  /
-                    //                | / <- missed active edge
-                    //                |/
-                    //                x <- missed intersection
-                    //               /|
-                    continue;
-                }
-
-                let active_segment = LineSegment {
-                    from: active_edge.from.to_f64(),
-                    to: active_edge.to.to_f64(),
-                };
-
-                if let Some((ta, tb)) = active_segment.intersection_t(&below_segment) {
-                    if tb < tb_min && tb > 0.0 && ta > 0.0 && ta <= 1.0 {
-                        // we only want the closest intersection;
-                        tb_min = tb;
-                        intersection = Some((ta, tb, i));
-                    }
-                }
+                // Iterating the two ranges around `skip_range` separately avoids a
+                // per-element range check in this hot loop.
+                Self::consider_edges_for_intersection(
+                    active,
+                    0..skip_start,
+                    below_min_x,
+                    below_max_x,
+                    &below_segment,
+                    &mut tb_min,
+                    &mut intersection,
+                );
+                Self::consider_edges_for_intersection(
+                    active,
+                    skip_end..active.len(),
+                    below_min_x,
+                    below_max_x,
+                    &below_segment,
+                    &mut tb_min,
+                    &mut intersection,
+                );
             }
 
             if let Some((ta, tb, active_edge_idx)) = intersection {
