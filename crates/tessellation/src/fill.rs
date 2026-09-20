@@ -302,6 +302,10 @@ impl Spans {
 #[derive(Copy, Clone, Debug)]
 struct PendingEdge {
     to: Point,
+    /// Slope of the edge relative to the current position, used to order the
+    /// pending edges. It is only meaningful once `sort_edges_below` has run:
+    /// that is the only place it is computed, because most events have fewer
+    /// than two edges below and never need it.
     sort_key: f32,
     // Index in events.edge_data
     src_edge: TessEventId,
@@ -911,7 +915,8 @@ impl FillTessellator {
                 debug_assert!(is_after(to, self.current_position));
                 self.edges_below.push(PendingEdge {
                     to,
-                    sort_key: slope(to - self.current_position), //.angle_from_x_axis().radians,
+                    // Computed lazily by `sort_edges_below`.
+                    sort_key: 0.0,
                     src_edge: current_sibling,
                     winding: edge.winding,
                     range_end: edge.range.end,
@@ -1425,7 +1430,8 @@ impl FillTessellator {
 
             self.edges_below.push(PendingEdge {
                 to,
-                sort_key: slope(to - self.current_position),
+                // Computed lazily by `sort_edges_below`.
+                sort_key: 0.0,
                 src_edge: active_edge.src_edge,
                 winding: active_edge.winding,
                 range_end: active_edge.range_end,
@@ -2105,6 +2111,17 @@ fn consider_edges_for_intersection(
 
     #[cfg_attr(feature = "profiling", inline(never))]
     fn sort_edges_below(&mut self) {
+        // The sort key is a division, so only compute it when there is actually
+        // something to order. Most events have a single edge below.
+        if self.edges_below.len() < 2 {
+            return;
+        }
+
+        let origin = self.current_position;
+        for edge in &mut self.edges_below {
+            edge.sort_key = slope(edge.to - origin);
+        }
+
         self.edges_below
             .sort_unstable_by(|a, b| a.sort_key.partial_cmp(&b.sort_key).unwrap_or(Ordering::Equal));
     }
