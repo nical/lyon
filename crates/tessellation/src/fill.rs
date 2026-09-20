@@ -50,7 +50,7 @@ impl Side {
 type SpanIdx = i32;
 type ActiveEdgeIdx = usize;
 
-// It's a bit odd but this consistently performs a bit better than f32::max, probably
+// This consistently performs a bit better than f32::max, probably
 // because the latter deals with NaN.
 #[inline(always)]
 fn fmax(a: f32, b: f32) -> f32 {
@@ -61,8 +61,17 @@ fn fmax(a: f32, b: f32) -> f32 {
     }
 }
 
+#[inline(always)]
+fn fmin(a: f32, b: f32) -> f32 {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
 fn slope(v: Vector) -> f32 {
-    v.x / (v.y.max(f32::MIN_POSITIVE))
+    v.x / fmax(v.y, f32::MIN_POSITIVE)
 }
 
 #[cfg(all(debug_assertions, feature = "std"))]
@@ -172,7 +181,7 @@ fn active_edge_size() {
 impl ActiveEdge {
     #[inline(always)]
     fn min_x(&self) -> f32 {
-        self.from.x.min(self.to.x)
+        fmin(self.from.x, self.to.x)
     }
 
     #[inline(always)]
@@ -187,13 +196,13 @@ impl ActiveEdge {
         // return something slightly out of the min/max range which
         // causes the ordering to be inconsistent with the way the
         // scan phase uses the min/max range.
-        LineSegment {
+        let x = LineSegment {
             from: self.from,
             to: self.to,
         }
-        .solve_x_for_y(y)
-        .max(self.min_x())
-        .min(self.max_x())
+        .solve_x_for_y(y);
+
+        fmin(fmax(x, self.min_x()), self.max_x())
     }
 }
 
@@ -1718,7 +1727,7 @@ fn consider_edges_for_intersection(
 
         let mut edges_below = mem::take(&mut self.edges_below);
         for edge_below in &mut edges_below {
-            let below_min_x = self.current_position.x.min(edge_below.to.x);
+            let below_min_x = fmin(self.current_position.x, edge_below.to.x);
             let below_max_x = fmax(self.current_position.x, edge_below.to.x);
 
             let below_segment = LineSegment {
