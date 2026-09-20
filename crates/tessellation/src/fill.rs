@@ -1340,10 +1340,6 @@ impl FillTessellator {
         active_edge_idx: usize,
         scan: &mut ActiveEdgeScan,
     ) -> Result<bool, InternalError> {
-        if points_are_equal(self.current_position, active_edge.to) {
-            return Ok(true);
-        }
-
         let current_x = self.current_position.x;
         let threshold = self.tolerance;
 
@@ -1354,8 +1350,15 @@ impl FillTessellator {
             return Err(InternalError::IncorrectActiveEdgeOrder(4));
         }
 
+        // An edge entirely to the right of the current point does not connect. Testing
+        // this before the point comparison is safe: a `to` equal to the current point
+        // implies `min_x() <= current_x`.
         if min_x > current_x {
             return Ok(false);
+        }
+
+        if points_are_equal(self.current_position, active_edge.to) {
+            return Ok(true);
         }
 
         let ex = if active_edge.from.y != active_edge.to.y {
