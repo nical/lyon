@@ -6,8 +6,7 @@ use crate::path::{EndpointId, IdEvent, PathEvent, PositionStore};
 use crate::Orientation;
 
 use core::cmp::Ordering;
-use core::mem::swap;
-use core::ops::Range;
+use core::mem::{self, swap};
 use alloc::vec::Vec;
 
 #[inline]
@@ -18,6 +17,29 @@ fn reorient(p: Point) -> Point {
 pub(crate) type TessEventId = u32;
 
 pub(crate) const INVALID_EVENT_ID: TessEventId = u32::MAX;
+
+/// Maps a float to an unsigned integer such that the integer ordering matches
+/// the float ordering. Adding zero first folds -0.0 into +0.0 so that the two
+/// compare equal, like they do as floats.
+#[inline]
+fn ordered_bits(x: f32) -> u32 {
+    let bits = (x + 0.0).to_bits();
+    if bits & 0x8000_0000 != 0 {
+        !bits
+    } else {
+        bits | 0x8000_0000
+    }
+}
+
+/// Packs a position and an event index into a single integer whose ordering
+/// matches `compare_positions` on the position, with the index as a tie-breaker.
+#[inline]
+fn sort_key(position: Point, idx: u32) -> u128 {
+    let y = ordered_bits(position.y) as u128;
+    let x = ordered_bits(position.x) as u128;
+
+    (y << 96) | (x << 64) | idx as u128
+}
 
 pub(crate) struct Event {
     pub next_sibling: TessEventId,
@@ -40,6 +62,9 @@ pub(crate) struct EdgeData {
 pub struct EventQueue {
     pub(crate) events: Vec<Event>,
     pub(crate) edge_data: Vec<EdgeData>,
+    /// Scratch buffer for the sorting phase, kept around so that repeated
+    /// tessellations reuse the allocation.
+    sort_keys: Vec<u128>,
     first: TessEventId,
     sorted: bool,
 }
@@ -55,6 +80,7 @@ impl EventQueue {
         EventQueue {
             events: Vec::new(),
             edge_data: Vec::new(),
+            sort_keys: Vec::new(),
             first: INVALID_EVENT_ID,
             sorted: false,
         }
@@ -64,6 +90,7 @@ impl EventQueue {
         EventQueue {
             events: Vec::with_capacity(cap),
             edge_data: Vec::with_capacity(cap),
+            sort_keys: Vec::with_capacity(cap),
             first: INVALID_EVENT_ID,
             sorted: false,
         }
@@ -305,95 +332,48 @@ impl EventQueue {
             return;
         }
 
-        let range = 0..self.events.len();
-        self.first = self.merge_sort(range);
-    }
-
-    /// Merge sort with two twists:
-    /// - Events at the same position are grouped into a "sibling" list.
-    /// - We take advantage of having events stored contiguously in a vector
-    ///   by recursively splitting ranges of the array instead of traversing
-    ///   the lists to find a split point.
-    fn merge_sort(&mut self, range: Range<usize>) -> TessEventId {
-        let split = (range.start + range.end) / 2;
-
-        if split == range.start {
-            return range.start as TessEventId;
+        // Sorting integer keys with the standard sort is a lot faster than
+        // walking linked lists: the key packs the position so that the plain
+        // integer ordering matches `compare_positions`, and the event index
+        // sits in the low bits so that events landing on the same spot keep
+        // their original order (which is the order sibling lists must follow).
+        let mut keys = mem::take(&mut self.sort_keys);
+        keys.clear();
+        keys.reserve(self.events.len());
+        for (idx, event) in self.events.iter().enumerate() {
+            keys.push(sort_key(event.position, idx as u32));
         }
 
-        let a_head = self.merge_sort(range.start..split);
-        let b_head = self.merge_sort(split..range.end);
+        keys.sort_unstable();
 
-        self.merge(a_head, b_head)
-    }
+        let n = keys.len();
+        self.first = (keys[0] & 0xffff_ffff) as TessEventId;
+        let mut group_start = 0;
+        while group_start < n {
+            let position_key = keys[group_start] >> 64;
+            let head = (keys[group_start] & 0xffff_ffff) as TessEventId;
 
-    fn merge(&mut self, mut a: TessEventId, mut b: TessEventId) -> TessEventId {
-        if a == INVALID_EVENT_ID {
-            return b;
-        }
-        if b == INVALID_EVENT_ID {
-            return a;
-        }
-
-        debug_assert!(a != b);
-        let mut first = true;
-        let mut sorted_head = INVALID_EVENT_ID;
-        let mut prev = INVALID_EVENT_ID;
-
-        loop {
-            if a == INVALID_EVENT_ID {
-                if !first {
-                    self.events[prev as usize].next_event = b;
-                }
-                break;
+            // Chain the events that share this position into a sibling list.
+            let mut prev = head;
+            let mut i = group_start + 1;
+            while i < n && (keys[i] >> 64) == position_key {
+                let id = (keys[i] & 0xffff_ffff) as TessEventId;
+                self.events[prev as usize].next_sibling = id;
+                prev = id;
+                i += 1;
             }
+            self.events[prev as usize].next_sibling = INVALID_EVENT_ID;
 
-            if b == INVALID_EVENT_ID {
-                if !first {
-                    self.events[prev as usize].next_event = a;
-                }
-                break;
-            }
-
-            let node;
-            match compare_positions(
-                self.events[a as usize].position,
-                self.events[b as usize].position,
-            ) {
-                Ordering::Less => {
-                    node = a;
-                    a = self.events[a as usize].next_event;
-                }
-                Ordering::Greater => {
-                    node = b;
-                    b = self.events[b as usize].next_event;
-                }
-                Ordering::Equal => {
-                    // Add b to a's sibling list.
-                    let a_sib = self.find_last_sibling(a) as usize;
-                    self.events[a_sib].next_sibling = b;
-
-                    b = self.events[b as usize].next_event;
-
-                    continue;
-                }
-            }
-
-            if first {
-                first = false;
-                sorted_head = node;
+            self.events[head as usize].next_event = if i < n {
+                (keys[i] & 0xffff_ffff) as TessEventId
             } else {
-                self.events[prev as usize].next_event = node;
-            }
+                INVALID_EVENT_ID
+            };
 
-            prev = node;
+            group_start = i;
         }
 
-        if sorted_head == INVALID_EVENT_ID {
-            sorted_head = a;
-        }
-
-        sorted_head
+        self.sort_keys = keys;
     }
 
     fn find_last_sibling(&self, id: TessEventId) -> TessEventId {
