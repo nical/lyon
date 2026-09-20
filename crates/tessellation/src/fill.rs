@@ -1071,13 +1071,17 @@ impl FillTessellator {
             }
 
             let edge_is_before_current_point =
-                if points_are_equal(self.current_position, active_edge.to) {
+                // Checking the x range first is safe: if the edge's `to` is equal to the
+                // current point then `max_x() >= current_x`, and `max_x() < current_x` is
+                // the common case for the bulk of the active edge list, so this avoids
+                // the point comparison for most edges.
+                if active_edge.max_x() < current_x {
+                    true
+                } else if points_are_equal(self.current_position, active_edge.to) {
                     // We just found our first edge that connects with the current point.
                     // We might find other ones in the next iterations.
                     connecting_edges = true;
                     false
-                } else if active_edge.max_x() < current_x {
-                    true
                 } else if active_edge.min_x() > current_x {
                     tess_log!(
                         self,
