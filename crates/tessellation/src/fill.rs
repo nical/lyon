@@ -1408,7 +1408,12 @@ impl FillTessellator {
             );
         }
 
-        self.fill.cleanup_spans();
+        // Spans only become "dead" (their `tess` set to `None`) when they are ended,
+        // which only happens in the loop above. If no span ended, the previous event
+        // already left the span list clean and we can skip the `retain` walk.
+        if !scan.spans_to_end.is_empty() {
+            self.fill.cleanup_spans();
+        }
 
         for &edge_idx in &scan.edges_to_split {
             let active_edge = &mut self.active.edges[edge_idx];
