@@ -970,7 +970,7 @@ fn flattened_segments_wang<S: Scalar>(curve: &QuadraticBezierSegment<S>, toleran
     }
 
     // Otherwise fall back to computing via two square roots.
-    err4.sqrt().sqrt().max(S::ONE)
+    err4.sqrt().sqrt().ceil().max(S::ONE)
 }
 
 /// A flattening iterator for quadratic bézier segments.
