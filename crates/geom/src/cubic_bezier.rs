@@ -1399,7 +1399,7 @@ fn flattened_segments_wang<S: Scalar>(curve: &CubicBezierSegment<S>, tolerance: 
     }
 
     // Otherwise fall back to computing via two square roots.
-    err4.sqrt().sqrt().max(S::ONE)
+    err4.sqrt().sqrt().ceil().max(S::ONE)
 }
 
 pub struct Flattened<S: Scalar> {
