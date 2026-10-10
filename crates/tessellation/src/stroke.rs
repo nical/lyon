@@ -325,6 +325,11 @@ pub(crate) struct EndpointData {
     pub src: VertexSource,
     pub side_points: [SidePoints; 2],
     pub fold: [bool; 2],
+    /// Set to the index of the inner (concave) side of the join when its
+    /// miter vertex would fall off both adjacent edges, in which case the
+    /// inner side is tessellated like a convex join (bevel or round) instead
+    /// of using a single vertex at the intersection of the offset edges.
+    pub inner_join: Option<usize>,
     pub is_flattening_step: bool,
 }
 
@@ -346,6 +351,7 @@ impl Default for EndpointData {
                 single_vertex: None,
             }; 2],
             fold: [false, false],
+            inner_join: None,
             is_flattening_step: false,
         }
     }
@@ -1687,20 +1693,33 @@ fn compute_join_side_positions_fixed_width(
         || join.line_join == LineJoin::MiterClip)
         && !miter_limit_is_exceeded(front_normal, miter_limit);
 
+    // Project the back vertex on the previous and next edges and subtract the edge length
+    // to see if the back vertex ends up further than the opposite endpoint of the edge.
+    let d_next = extruded_normal.dot(-next_tangent) - next_length;
+    let d_prev = extruded_normal.dot(prev_tangent) - prev_length;
+    let back_vertex_overshoots = d_next.min(d_prev) > 0.0;
+
     let mut fold = false;
     let angle_is_sharp = next_tangent.dot(prev_tangent) < 0.0;
-    if !unclipped_miter && angle_is_sharp {
-        // Project the back vertex on the previous and next edges and subtract the edge length
-        // to see if the back vertex ends up further than the opposite endpoint of the edge.
-        let d_next = extruded_normal.dot(-next_tangent) - next_length;
-        let d_prev = extruded_normal.dot(prev_tangent) - prev_length;
-        if d_next.min(d_prev) > 0.0 || normal.square_length() < 1e-5 {
-            // Case of an overlapping stroke. In order to prevent the back vertex from creating a
-            // spike outside of the stroke, we simply don't create it and we'll "fold" the join
-            // instead.
-            join.fold[front_side] = true;
-            fold = true;
-        }
+    if !unclipped_miter
+        && angle_is_sharp
+        && (back_vertex_overshoots || normal.square_length() < 1e-5)
+    {
+        // Case of an overlapping stroke. In order to prevent the back vertex from creating a
+        // spike outside of the stroke, we simply don't create it and we'll "fold" the join
+        // instead.
+        join.fold[front_side] = true;
+        fold = true;
+    }
+
+    // If the back vertex falls off both edges (typically because the edges are shorter
+    // than the line width), the offset edges don't actually intersect so the back vertex
+    // would stick out of the stroke. When the folding workaround above does not apply,
+    // tessellate the back side like a convex join (bevel or round) between the two side
+    // positions instead of using the miter vertex (see issue #891).
+    let inner_join = !fold && back_vertex_overshoots;
+    if inner_join {
+        join.inner_join = Some(back_side);
     }
 
     let n0 = vector(-prev_tangent.y, prev_tangent.x) * vertex.half_width;
@@ -1716,7 +1735,9 @@ fn compute_join_side_positions_fixed_width(
             join.position - normal * vertex.half_width,
         ];
 
-        join.side_points[back_side].single_vertex = Some(miter_pos[back_side]);
+        if !inner_join {
+            join.side_points[back_side].single_vertex = Some(miter_pos[back_side]);
+        }
         if unclipped_miter {
             join.side_points[front_side].single_vertex = Some(miter_pos[front_side]);
         } else if join.line_join == LineJoin::MiterClip {
@@ -1916,7 +1937,24 @@ fn tessellate_join(
         join.side_points[SIDE_NEGATIVE].single_vertex.is_none() && !join.fold[SIDE_POSITIVE],
     ];
 
-    if !join.fold[SIDE_POSITIVE] && !join.fold[SIDE_NEGATIVE] {
+    if let Some(back_side) = join.inner_join {
+        // The back side is tessellated like a convex join between its two side
+        // positions, so the interior of the join is the (convex) quad formed by
+        // the side positions of the two sides.
+        let front = &join.side_points[1 - back_side];
+        let back = &join.side_points[back_side];
+        if back_side == SIDE_NEGATIVE {
+            if front.prev_vertex != front.next_vertex {
+                output.add_triangle(front.prev_vertex, front.next_vertex, back.prev_vertex);
+            }
+            output.add_triangle(front.prev_vertex, back.prev_vertex, back.next_vertex);
+        } else {
+            if front.prev_vertex != front.next_vertex {
+                output.add_triangle(front.prev_vertex, back.prev_vertex, front.next_vertex);
+            }
+            output.add_triangle(front.prev_vertex, back.next_vertex, back.prev_vertex);
+        }
+    } else if !join.fold[SIDE_POSITIVE] && !join.fold[SIDE_NEGATIVE] {
         // Tessellate the interior of the join.
         match side_needs_join {
             [true, true] => {
@@ -1981,7 +2019,12 @@ fn tessellate_round_join(
     let mut start_vertex = join.side_points[side].prev_vertex;
     let mut end_vertex = join.side_points[side].next_vertex;
 
-    let angle_sign = if side == SIDE_NEGATIVE { 1.0 } else { -1.0 };
+    // The arc goes around the inner side of the join if this side is tessellated
+    // as an inner join, which flips the direction of the arc.
+    let inner = join.inner_join == Some(side);
+    let flip = (side == SIDE_NEGATIVE) != inner;
+
+    let angle_sign = if flip { 1.0 } else { -1.0 };
 
     let mut start_angle = start_normal.angle_from_x_axis();
     let mut diff = start_angle.angle_to(end_normal.angle_from_x_axis());
@@ -1992,7 +2035,7 @@ fn tessellate_round_join(
     }
     let mut end_angle = start_angle + diff;
 
-    if side == SIDE_NEGATIVE {
+    if flip {
         // Flip to keep consistent winding order.
         core::mem::swap(&mut start_angle, &mut end_angle);
         core::mem::swap(&mut start_vertex, &mut end_vertex);
@@ -2081,9 +2124,9 @@ fn compute_join_side_positions(
     let normal_same_side = (v0 + v1).dot(path_v0 + path_v1) >= 0.0;
 
     // We must watch out for special cases where the previous or next edge is small relative
-    // to the line width. Our workaround only applies to "sharp" angles (more than 90 degrees).
-    let angle_is_sharp = inward && !forward && normal_same_side;
-    if angle_is_sharp {
+    // to the line width.
+    let mut back_vertex_overshoots = false;
+    if inward && normal_same_side {
         // Project the back vertex on the previous and next edges and subtract the edge length
         // to see if the back vertex ends up further than the opposite endpoint of the edge.
         let extruded_normal = normal * join.half_width;
@@ -2091,19 +2134,28 @@ fn compute_join_side_positions(
         let next_length = next.advancement - join.advancement;
         let d_next = extruded_normal.dot(v1) - next_length;
         let d_prev = extruded_normal.dot(-v0) - prev_length;
+        back_vertex_overshoots = d_next.min(d_prev) > 0.0;
+    }
 
-        if d_next.min(d_prev) > 0.0 || normal.square_length() < 1e-5 {
-            // Case of an overlapping stroke. In order to prevent the back vertex to create a
-            // spike outside of the stroke, we simply don't create it and we'll "fold" the join
-            // instead.
-            join.fold[side] = true;
-        }
+    // The folding workaround only applies to "sharp" angles (more than 90 degrees).
+    let angle_is_sharp = inward && !forward && normal_same_side;
+    if angle_is_sharp && (back_vertex_overshoots || normal.square_length() < 1e-5) {
+        // Case of an overlapping stroke. In order to prevent the back vertex to create a
+        // spike outside of the stroke, we simply don't create it and we'll "fold" the join
+        // instead.
+        join.fold[side] = true;
     }
 
     // For concave sides we'll simply connect at the intersection of the two side edges.
     let concave = inward && normal_same_side && !join.fold[side];
 
-    if concave
+    if concave && back_vertex_overshoots {
+        // The offset edges don't actually intersect (typically because the edges are
+        // shorter than the line width), so the back vertex would stick out of the
+        // stroke. Tessellate this side like a convex join (bevel or round) between the
+        // two side positions instead (see issue #891).
+        join.inner_join = Some(side);
+    } else if concave
         || ((join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
             && !miter_limit_is_exceeded(normal, miter_limit))
     {
@@ -3450,4 +3502,147 @@ fn correct_miter_clip_length() {
     let expected_max_y = path_max_y + line_width * miter_limit * 0.5;
 
     assert_eq!(expected_max_y, max_y);
+}
+
+#[test]
+fn issue_891() {
+    // When the edges around a join are much shorter than the line width, the inner
+    // (back) vertex of the join computed by intersecting the offset edges falls off
+    // both edges and used to stick out of the stroke as a spike. Check that no vertex
+    // ends up further from the path than half the line width (plus the outer miter if
+    // any), and that the triangle winding is consistent.
+
+    fn distance_to_polyline(p: Point, points: &[Point], closed: bool) -> f32 {
+        let segment_distance = |a: Point, b: Point| {
+            let ab = b - a;
+            let t = ((p - a).dot(ab) / ab.square_length()).clamp(0.0, 1.0);
+            (p - (a + ab * t)).length()
+        };
+        let mut d = f32::MAX;
+        for w in points.windows(2) {
+            d = d.min(segment_distance(w[0], w[1]));
+        }
+        if closed {
+            d = d.min(segment_distance(points[points.len() - 1], points[0]));
+        }
+        d
+    }
+
+    fn check(points: &[Point], closed: bool, options: &StrokeOptions, max_dist: f32) {
+        let mut path = Path::builder_with_attributes(1);
+        path.begin(points[0], &[1.0]);
+        for p in &points[1..] {
+            path.line_to(*p, &[1.0]);
+        }
+        path.end(closed);
+        let path = path.build();
+
+        // Checks the winding of the generated triangles.
+        test_path(path.as_slice(), options, None);
+
+        let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+        StrokeTessellator::new()
+            .tessellate_path(&path, options, &mut simple_builder(&mut buffers))
+            .unwrap();
+
+        for v in &buffers.vertices {
+            let d = distance_to_polyline(*v, points, closed);
+            assert!(
+                d <= max_dist + 0.01,
+                "vertex {:?} is at distance {} from the path (max {}), options: {:?}",
+                v,
+                d,
+                max_dist,
+                options,
+            );
+        }
+    }
+
+    let width = 100.0;
+    let hw = width * 0.5;
+
+    // (points, closed, also test with variable line width)
+    // The variable line width code path handles turns of 90 degrees or more with
+    // a different ("folding") workaround which isn't covered by this test.
+    let paths: &[(&[Point], bool, bool)] = &[
+        // Test case from the issue.
+        (
+            &[
+                point(69.0, -155.0),
+                point(71.0, -158.0),
+                point(74.0, -158.0),
+            ],
+            false,
+            true,
+        ),
+        // 45 degrees turn.
+        (
+            &[point(5.0, 0.0), point(0.0, 0.0), point(-3.5, 3.5)],
+            false,
+            true,
+        ),
+        // 90 degrees turn.
+        (
+            &[point(5.0, 0.0), point(0.0, 0.0), point(0.0, 5.0)],
+            false,
+            false,
+        ),
+        // 120 degrees turn.
+        (
+            &[point(5.0, 0.0), point(0.0, 0.0), point(2.5, 4.33)],
+            false,
+            false,
+        ),
+        // 180 degrees turn.
+        (
+            &[point(3.0, 0.0), point(0.0, 0.0), point(2.0, 0.0)],
+            false,
+            false,
+        ),
+        // Closed path with all edges shorter than the line width.
+        (
+            &[
+                point(0.0, 0.0),
+                point(4.0, 0.0),
+                point(4.0, 4.0),
+                point(0.0, 4.0),
+            ],
+            true,
+            false,
+        ),
+    ];
+
+    for (points, closed, variable_width) in paths {
+        for line_join in [LineJoin::Round, LineJoin::Bevel] {
+            for line_cap in [LineCap::Round, LineCap::Butt] {
+                let options = StrokeOptions::tolerance(0.05)
+                    .with_line_width(width)
+                    .with_line_join(line_join)
+                    .with_line_cap(line_cap);
+                // Round and bevel joins never extend further than half the line width.
+                check(points, *closed, &options, hw);
+                if *variable_width {
+                    check(points, *closed, &options.with_variable_line_width(0), hw);
+                }
+            }
+        }
+    }
+
+    // With miter joins, the outer vertex of the join is allowed to extend up to the
+    // miter length, but the inner vertex must not stick out.
+    let options = StrokeOptions::tolerance(0.05)
+        .with_line_width(width)
+        .with_line_join(LineJoin::Miter)
+        .with_line_cap(LineCap::Round);
+    let (points, closed, _) = paths[0];
+    let v0 = (points[1] - points[0]).normalize();
+    let v1 = (points[2] - points[1]).normalize();
+    let miter_length = hw / (v0.angle_to(v1).radians * 0.5).cos();
+    check(points, closed, &options, miter_length);
+    check(
+        points,
+        closed,
+        &options.with_variable_line_width(0),
+        miter_length,
+    );
 }
