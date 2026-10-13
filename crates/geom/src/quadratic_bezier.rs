@@ -628,7 +628,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
         if a == S::ZERO {
             // Linear equation bt + c = 0.
-            let t = c / b;
+            let t = -c / b;
             // Note: if b is zero, then t is NaN and we return without any
             // intersection. This is on purpose although debatable. See the
             // comment in `line_intersections_degenerate_curve_on_line`.
@@ -1531,6 +1531,26 @@ fn line_intersections_t() {
     }
     assert_eq!(i2.len(), 2);
     assert_eq!(i1.len(), 2);
+}
+
+#[test]
+fn line_intersections_linear_case() {
+    // Test the linear case using a parabola and a vertical line.
+    let curve = QuadraticBezierSegment {
+        from: point(-1.0f64, 1.0),
+        ctrl: point(0.0, 2.0),
+        to: point(1.0, 1.0),
+    };
+
+    let line = Line {
+        point: point(0.0, 0.0),
+        vector: crate::vector(0.0, 1.0),
+    };
+
+    assert_eq!(
+        curve.line_intersections_t(&line).as_slice(),
+        curve.to_cubic().line_intersections_t(&line).as_slice()
+    );
 }
 
 #[test]
