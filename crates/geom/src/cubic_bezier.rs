@@ -538,22 +538,52 @@ impl<S: Scalar> CubicBezierSegment<S> {
     {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
 
-        let num_quadratics = S::from(self.num_quadratics_impl(tolerance)).unwrap();
-        let step = S::ONE / num_quadratics;
-        let n = num_quadratics.to_u32().unwrap_or(1);
-        let mut t0 = S::ZERO;
-        for _ in 0..(n - 1) {
-            let t1 = t0 + step;
-
-            let quad = self.split_range(t0..t1).to_quadratic();
-            cb(&quad, t0..t1);
-
-            t0 = t1;
+        let n = self.num_quadratics(tolerance).max(1);
+        if n == 1 {
+            cb(&self.to_quadratic(), S::ZERO..S::ONE);
+            return;
         }
 
-        // Do the last step manually to make sure we finish at t = 1.0 exactly.
-        let quad = self.split_range(t0..S::ONE).to_quadratic();
-        cb(&quad, t0..S::ONE)
+        // The curve is split into `num_quadratics` ranges of equal length, and each
+        // sub-curve is approximated by the quadratic bézier curve whose control point
+        // is the average of the ones that preserve the tangent at each end
+        // (`CubicBezierSegment::to_quadratic`). For the sub-curve over [t0, t1], with
+        // h = t1 - t0, its control points are B(t0), B(t0) + h/3 B'(t0),
+        // B(t1) - h/3 B'(t1) and B(t1), so that control point is
+        // (B(t0) + B(t1)) / 2 + h/4 (B'(t0) - B'(t1)). Each step only evaluates the
+        // curve and its derivative at the end of its range, without computing the
+        // sub-curve.
+        // B(t) - from = t (c + t (b + t a)) and B'(t) = c + t (2 b + 3 t a).
+        let from = self.from.to_vector();
+        let ctrl1 = self.ctrl1.to_vector();
+        let ctrl2 = self.ctrl2.to_vector();
+        let to = self.to.to_vector();
+        let a = to - from + (ctrl1 - ctrl2) * S::THREE;
+        let b = (from - ctrl1 * S::TWO + ctrl2) * S::THREE;
+        let c = (ctrl1 - from) * S::THREE;
+
+        let h = S::ONE / S::from(n).unwrap();
+        let quarter_h = h * S::value(0.25);
+        let mut t0 = S::ZERO;
+        let mut p0 = self.from;
+        let mut d0 = c;
+        for i in 1..n {
+            let t1 = h * S::from(i).unwrap();
+            let p1 = self.from + (c + (b + a * t1) * t1) * t1;
+            let d1 = c + (b * S::TWO + a * (S::THREE * t1)) * t1;
+
+            let ctrl = p0.lerp(p1, S::HALF) + (d0 - d1) * quarter_h;
+            cb(&QuadraticBezierSegment { from: p0, ctrl, to: p1 }, t0..t1);
+
+            t0 = t1;
+            p0 = p1;
+            d0 = d1;
+        }
+
+        // End exactly at the end of the curve.
+        let d1 = (to - ctrl2) * S::THREE;
+        let ctrl = p0.lerp(self.to, S::HALF) + (d0 - d1) * quarter_h;
+        cb(&QuadraticBezierSegment { from: p0, ctrl, to: self.to }, t0..S::ONE);
     }
 
     /// Approximates the curve with sequence of line segments.
