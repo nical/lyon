@@ -23,6 +23,7 @@ pub struct QuadraticBezierSegment<S> {
 }
 
 impl<S: Scalar> QuadraticBezierSegment<S> {
+    #[inline(always)]
     pub fn cast<NewS: NumCast>(self) -> QuadraticBezierSegment<NewS> {
         QuadraticBezierSegment {
             from: self.from.cast(),
@@ -32,6 +33,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Sample the curve at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn sample(&self, t: S) -> Point<S> {
         let t2 = t * t;
         let one_t = S::ONE - t;
@@ -41,6 +43,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn x(&self, t: S) -> S {
         let t2 = t * t;
         let one_t = S::ONE - t;
@@ -50,6 +53,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn y(&self, t: S) -> S {
         let t2 = t * t;
         let one_t = S::ONE - t;
@@ -64,24 +68,28 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Sample the curve's derivative at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn derivative(&self, t: S) -> Vector<S> {
         let (c0, c1, c2) = self.derivative_coefficients(t);
         self.from.to_vector() * c0 + self.ctrl.to_vector() * c1 + self.to.to_vector() * c2
     }
 
     /// Sample the x coordinate of the curve's derivative at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn dx(&self, t: S) -> S {
         let (c0, c1, c2) = self.derivative_coefficients(t);
         self.from.x * c0 + self.ctrl.x * c1 + self.to.x * c2
     }
 
     /// Sample the y coordinate of the curve's derivative at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn dy(&self, t: S) -> S {
         let (c0, c1, c2) = self.derivative_coefficients(t);
         self.from.y * c0 + self.ctrl.y * c1 + self.to.y * c2
     }
 
     /// Swap the beginning and the end of the segment.
+    #[inline(always)]
     pub fn flip(&self) -> Self {
         QuadraticBezierSegment {
             from: self.to,
@@ -193,6 +201,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// Return the sub-curve inside a given range of t.
     ///
     /// This is equivalent splitting at the range's end points.
+    #[inline(always)]
     pub fn split_range(&self, t_range: Range<S>) -> Self {
         let t0 = t_range.start;
         let t1 = t_range.end;
@@ -205,6 +214,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Split this curve into two sub-curves.
+    #[inline(always)]
     pub fn split(&self, t: S) -> (QuadraticBezierSegment<S>, QuadraticBezierSegment<S>) {
         let split_point = self.sample(t);
 
@@ -223,6 +233,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Return the curve before the split point.
+    #[inline(always)]
     pub fn before_split(&self, t: S) -> QuadraticBezierSegment<S> {
         QuadraticBezierSegment {
             from: self.from,
@@ -232,6 +243,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Return the curve after the split point.
+    #[inline(always)]
     pub fn after_split(&self, t: S) -> QuadraticBezierSegment<S> {
         QuadraticBezierSegment {
             from: self.sample(t),
@@ -241,6 +253,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Elevate this curve to a third order bézier.
+    #[inline(always)]
     pub fn to_cubic(&self) -> CubicBezierSegment<S> {
         CubicBezierSegment {
             from: self.from,
@@ -260,6 +273,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     /// Returns whether the curve can be approximated with a single point, given
     /// a tolerance threshold.
+    #[inline(always)]
     pub fn is_a_point(&self, tolerance: S) -> bool {
         let tol2 = tolerance * tolerance;
         (self.from - self.to).square_length() <= tol2
@@ -392,11 +406,13 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
+    #[inline(always)]
     pub fn flattened(&self, tolerance: S) -> Flattened<S> {
         Flattened::new(self, tolerance)
     }
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
+    #[inline(always)]
     pub fn flattened_t(&self, tolerance: S) -> FlattenedT<S> {
         FlattenedT::new(self, tolerance)
     }
@@ -437,6 +453,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>),
@@ -456,6 +473,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each y-monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_y_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
@@ -472,6 +490,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each y-monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_y_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>),
@@ -489,6 +508,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each x-monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_x_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
@@ -505,6 +525,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each x-monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_x_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>),
@@ -530,6 +551,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Returns a triangle containing this curve segment.
+    #[inline(always)]
     pub fn bounding_triangle(&self) -> Triangle<S> {
         Triangle {
             a: self.from,
@@ -539,6 +561,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Returns a conservative rectangle that contains the curve.
+    #[inline(always)]
     pub fn fast_bounding_box(&self) -> Box2D<S> {
         let (min_x, max_x) = self.fast_bounding_range_x();
         let (min_y, max_y) = self.fast_bounding_range_y();
@@ -550,6 +573,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Returns a conservative range of x that contains this curve.
+    #[inline(always)]
     pub fn fast_bounding_range_x(&self) -> (S, S) {
         let min_x = self.from.x.min(self.ctrl.x).min(self.to.x);
         let max_x = self.from.x.max(self.ctrl.x).max(self.to.x);
@@ -558,6 +582,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Returns a conservative range of y that contains this curve.
+    #[inline(always)]
     pub fn fast_bounding_range_y(&self) -> (S, S) {
         let min_y = self.from.y.min(self.ctrl.y).min(self.to.y);
         let max_y = self.from.y.max(self.ctrl.y).max(self.to.y);
@@ -566,6 +591,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Returns the smallest rectangle the curve is contained in
+    #[inline(always)]
     pub fn bounding_box(&self) -> Box2D<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
@@ -593,16 +619,19 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Returns whether this segment is monotonic on the x axis.
+    #[inline(always)]
     pub fn is_x_monotonic(&self) -> bool {
         self.local_x_extremum_t().is_none()
     }
 
     /// Returns whether this segment is monotonic on the y axis.
+    #[inline(always)]
     pub fn is_y_monotonic(&self) -> bool {
         self.local_y_extremum_t().is_none()
     }
 
     /// Returns whether this segment is fully monotonic.
+    #[inline(always)]
     pub fn is_monotonic(&self) -> bool {
         self.is_x_monotonic() && self.is_y_monotonic()
     }
@@ -785,6 +814,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Returns the shortest distance between this segment and a point.
+    #[inline(always)]
     pub fn distance_to_point(&self, pos: Point<S>) -> S {
         (self.sample(self.closest_point(pos)) - pos).length()
     }
@@ -793,6 +823,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     ///
     /// May be useful to avoid the cost of a square root when comparing against a distance
     /// that can be squared instead.
+    #[inline(always)]
     pub fn square_distance_to_point(&self, pos: Point<S>) -> S {
         (self.sample(self.closest_point(pos)) - pos).square_length()
     }
@@ -871,6 +902,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         self.length()
     }
 
+    #[inline(always)]
     pub fn to_f32(&self) -> QuadraticBezierSegment<f32> {
         QuadraticBezierSegment {
             from: self.from.to_f32(),
@@ -879,6 +911,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         }
     }
 
+    #[inline(always)]
     pub fn to_f64(&self) -> QuadraticBezierSegment<f64> {
         QuadraticBezierSegment {
             from: self.from.to_f64(),
