@@ -63,7 +63,12 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<S, 
     let mut result = ArrayVec::new();
 
     let m = a.abs().max(b.abs()).max(c.abs()).max(d.abs());
-    let epsilon = S::epsilon_for(m);
+    if !(m > S::ZERO) {
+        // All coefficients are zero, or one of them is not a number.
+        return result;
+    }
+    let (a, b, c, d) = (a / m, b / m, c / m, d / m);
+    let epsilon = S::EPSILON;
 
     if S::abs(a) < epsilon {
         if S::abs(b) < epsilon {
@@ -76,12 +81,23 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<S, 
         }
         // quadratic equation
         let delta = c * c - S::FOUR * b * d;
-        if delta > S::ZERO {
-            let sqrt_delta = S::sqrt(delta);
-            result.push((-c - sqrt_delta) / (S::TWO * b));
-            result.push((-c + sqrt_delta) / (S::TWO * b));
-        } else if S::abs(delta) < epsilon {
+        // Rounding can move the discriminant of a double root to either side of
+        // zero.
+        if S::abs(delta) < epsilon {
             result.push(-c / (S::TWO * b));
+        } else if delta > S::ZERO {
+            // q / b and d / q are the two roots, without subtracting values
+            // that are close to each other.
+            let sqrt_delta = S::sqrt(delta);
+            let q = if c >= S::ZERO { -(c + sqrt_delta) } else { sqrt_delta - c } * S::HALF;
+            let (r0, r1) = (q / b, d / q);
+            if c >= S::ZERO {
+                result.push(r0);
+                result.push(r1);
+            } else {
+                result.push(r1);
+                result.push(r0);
+            }
         }
         return result;
     }
@@ -121,57 +137,43 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<S, 
         );
     }
 
-    //result.sort();
-
     result
 }
 
 #[test]
 fn cubic_polynomial() {
-    fn assert_approx_eq(a: ArrayVec<f32, 3>, b: &[f32], epsilon: f32) {
-        for i in 0..a.len() {
-            if f32::abs(a[i] - b[i]) > epsilon {
-                std::println!("{a:?} != {b:?}");
-            }
-            assert!((a[i] - b[i]).abs() <= epsilon);
+    let cases: [([f32; 4], &[f32], f32); 11] = [
+        ([2.0, -4.0, 2.0, 0.0], &[0.0, 1.0], 1e-6),
+        ([-1.0, 1.0, -1.0, 1.0], &[1.0], 1e-6),
+        ([-2.0, 2.0, -1.0, 10.0], &[2.0], 5e-5),
+        // (t - 1)^3, with a triple root.
+        ([1.0, -3.0, 3.0, -1.0], &[1.0], 5e-5),
+        ([0.0, 1.0, -5.0, -14.0], &[-2.0, 7.0], 5e-5),
+        // (t - 3)², with a double root.
+        ([0.0, 1.0, -6.0, 9.0], &[3.0], 5e-5),
+        ([0.0, 0.0, 2.0, 1.0], &[-0.5], 5e-5),
+        ([0.0, 0.0, 0.0, 1.0], &[], 0.0),
+        ([0.0, 0.0, 0.0, 0.0], &[], 0.0),
+        // (t - 0.5) (t² + 1) * 1e-6.
+        ([1e-6, -0.5e-6, 1e-6, -0.5e-6], &[0.5], 1e-5),
+        ([0.0, 6.646663e-5, -9.966642e-5, 5.0959364e-4], &[], 0.0),
+    ];
+    for (coefficients, expected, epsilon) in cases {
+        let [a, b, c, d] = coefficients;
+        let mut roots = cubic_polynomial_roots(a, b, c, d);
+        roots.sort_by(|a, b| a.total_cmp(b));
+        assert_eq!(roots.len(), expected.len(), "{coefficients:?}: {roots:?}");
+        for (root, expected) in roots.iter().zip(expected.iter()) {
+            assert!((root - expected).abs() <= epsilon, "{:?}: {:?}", coefficients, roots);
         }
-        assert_eq!(a.len(), b.len());
+
+        // Scaling by powers of two is exact, so the roots are exactly the same.
+        for exponent in [-40, -20, -10, 10, 20, 40] {
+            let scale = 2.0f32.powi(exponent);
+            let [a, b, c, d] = coefficients.map(|v| v * scale);
+            let mut scaled_roots = cubic_polynomial_roots(a, b, c, d);
+            scaled_roots.sort_by(|a, b| a.total_cmp(b));
+            assert_eq!(scaled_roots, roots, "{:?} x 2^{}", coefficients, exponent);
+        }
     }
-
-    assert_approx_eq(
-        cubic_polynomial_roots(2.0, -4.0, 2.0, 0.0),
-        &[0.0, 1.0],
-        0.0000001,
-    );
-    assert_approx_eq(
-        cubic_polynomial_roots(-1.0, 1.0, -1.0, 1.0),
-        &[1.0],
-        0.000001,
-    );
-    assert_approx_eq(
-        cubic_polynomial_roots(-2.0, 2.0, -1.0, 10.0),
-        &[2.0],
-        0.00005,
-    );
-    // (x - 1)^3, with a triple root, should only return one root.
-    assert_approx_eq(
-        cubic_polynomial_roots(1.0, -3.0, 3.0, -1.0),
-        &[1.0],
-        0.00005,
-    );
-
-    // Quadratics.
-    assert_approx_eq(
-        cubic_polynomial_roots(0.0, 1.0, -5.0, -14.0),
-        &[-2.0, 7.0],
-        0.00005,
-    );
-    // (x - 3)^2, with a double root, should only return one root.
-    assert_approx_eq(cubic_polynomial_roots(0.0, 1.0, -6.0, 9.0), &[3.0], 0.00005);
-
-    // Linear.
-    assert_approx_eq(cubic_polynomial_roots(0.0, 0.0, 2.0, 1.0), &[-0.5], 0.00005);
-
-    // Constant.
-    assert_approx_eq(cubic_polynomial_roots(0.0, 0.0, 0.0, 0.0), &[], 0.00005);
 }
