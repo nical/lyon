@@ -29,6 +29,7 @@ pub struct CubicBezierSegment<S> {
 
 impl<S: Scalar> CubicBezierSegment<S> {
     /// Sample the curve at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn sample(&self, t: S) -> Point<S> {
         let t2 = t * t;
         let t3 = t2 * t;
@@ -43,6 +44,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn x(&self, t: S) -> S {
         let t2 = t * t;
         let t3 = t2 * t;
@@ -57,6 +59,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn y(&self, t: S) -> S {
         let t2 = t * t;
         let t3 = t2 * t;
@@ -127,6 +130,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Sample the curve's derivative at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn derivative(&self, t: S) -> Vector<S> {
         let (c0, c1, c2, c3) = self.derivative_coefficients(t);
         self.from.to_vector() * c0
@@ -136,12 +140,14 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Sample the x coordinate of the curve's derivative at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn dx(&self, t: S) -> S {
         let (c0, c1, c2, c3) = self.derivative_coefficients(t);
         self.from.x * c0 + self.ctrl1.x * c1 + self.ctrl2.x * c2 + self.to.x * c3
     }
 
     /// Sample the y coordinate of the curve's derivative at t (expecting t between 0 and 1).
+    #[inline(always)]
     pub fn dy(&self, t: S) -> S {
         let (c0, c1, c2, c3) = self.derivative_coefficients(t);
         self.from.y * c0 + self.ctrl1.y * c1 + self.ctrl2.y * c2 + self.to.y * c3
@@ -150,6 +156,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// Return the sub-curve inside a given range of t.
     ///
     /// This is equivalent to splitting at the range's end points.
+    #[inline(always)]
     pub fn split_range(&self, t_range: Range<S>) -> Self {
         let (t0, t1) = (t_range.start, t_range.end);
         let from = self.sample(t0);
@@ -174,6 +181,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Split this curve into two sub-curves.
+    #[inline(always)]
     pub fn split(&self, t: S) -> (CubicBezierSegment<S>, CubicBezierSegment<S>) {
         let ctrl1a = self.from + (self.ctrl1 - self.from) * t;
         let ctrl2a = self.ctrl1 + (self.ctrl2 - self.ctrl1) * t;
@@ -199,6 +207,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Return the curve before the split point.
+    #[inline(always)]
     pub fn before_split(&self, t: S) -> CubicBezierSegment<S> {
         let ctrl1a = self.from + (self.ctrl1 - self.from) * t;
         let ctrl2a = self.ctrl1 + (self.ctrl2 - self.ctrl1) * t;
@@ -216,6 +225,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Return the curve after the split point.
+    #[inline(always)]
     pub fn after_split(&self, t: S) -> CubicBezierSegment<S> {
         let ctrl1a = self.from + (self.ctrl1 - self.from) * t;
         let ctrl2a = self.ctrl1 + (self.ctrl2 - self.ctrl1) * t;
@@ -272,6 +282,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Returns whether the curve can be approximated with a single point, given
     /// a tolerance threshold.
+    #[inline(always)]
     pub(crate) fn is_a_point(&self, tolerance: S) -> bool {
         let tolerance_squared = tolerance * tolerance;
         // Use <= so that tolerance can be zero.
@@ -308,6 +319,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     ///
     /// A fat line is two conservative lines between which the segment
     /// is fully contained.
+    #[inline(always)]
     pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>) {
         let baseline = self.baseline().to_line().equation();
         let (d1, d2) = self.fat_line_min_max();
@@ -327,6 +339,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Swap the beginning and the end of the segment.
+    #[inline(always)]
     pub fn flip(&self) -> Self {
         CubicBezierSegment {
             from: self.to,
@@ -341,6 +354,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// This is terrible as a general approximation but works if the cubic
     /// curve does not have inflection points and is "flat" enough. Typically
     /// usable after subdividing the curve a few times.
+    #[inline(always)]
     pub fn to_quadratic(&self) -> QuadraticBezierSegment<S> {
         let c1 = (self.ctrl1 * S::THREE - self.from) * S::HALF;
         let c2 = (self.ctrl2 * S::THREE - self.to) * S::HALF;
@@ -353,6 +367,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Evaluates an upper bound on the maximum distance between the curve
     /// and its quadratic approximation obtained using `to_quadratic`.
+    #[inline(always)]
     pub fn to_quadratic_error(&self) -> S {
         // See http://caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html
         S::sqrt(S::THREE) / S::value(36.0)
@@ -364,6 +379,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     ///
     /// Equivalent to comparing `to_quadratic_error` with the tolerance threshold, avoiding
     /// the cost of two square roots.
+    #[inline(always)]
     pub fn is_quadratic(&self, tolerance: S) -> bool {
         S::THREE / S::value(1296.0)
             * ((self.to - self.ctrl2 * S::THREE) + (self.ctrl1 * S::THREE - self.from))
@@ -378,10 +394,6 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// <https://scholarsarchive.byu.edu/cgi/viewcontent.cgi?article=1000&context=facpub#section.10.6>
     /// and the error metric from the caffein owl blog post <http://caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html>
     pub fn num_quadratics(&self, tolerance: S) -> u32 {
-        self.num_quadratics_impl(tolerance)
-    }
-
-    fn num_quadratics_impl(&self, tolerance: S) -> u32 {
         debug_assert!(tolerance > S::ZERO);
 
         let x = self.from.x - S::THREE * self.ctrl1.x + S::THREE * self.ctrl2.x - self.to.x;
@@ -413,6 +425,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
+    #[inline(always)]
     pub fn flattened(&self, tolerance: S) -> Flattened<S> {
         Flattened::new(self, tolerance)
     }
@@ -439,6 +452,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&CubicBezierSegment<S>),
@@ -460,6 +474,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each y-monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_y_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
@@ -474,6 +489,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each y-monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_y_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&CubicBezierSegment<S>),
@@ -491,6 +507,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each x-monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_x_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
@@ -505,6 +522,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each x-monotonic part of the segment.
+    #[inline(always)]
     pub fn for_each_x_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&CubicBezierSegment<S>),
@@ -523,6 +541,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Approximates the cubic bézier curve with sequence of quadratic ones,
     /// invoking a callback at each step.
+    #[inline(always)]
     pub fn for_each_quadratic_bezier<F>(&self, tolerance: S, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>),
@@ -538,7 +557,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
 
-        let n = self.num_quadratics(tolerance).max(1);
+        let n = self.num_quadratics(tolerance);
         if n == 1 {
             cb(&self.to_quadratic(), S::ZERO..S::ONE);
             return;
