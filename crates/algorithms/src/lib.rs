@@ -13,6 +13,10 @@ extern crate alloc;
 #[cfg(any(test, feature = "std"))]
 extern crate std;
 
+#[cfg(feature = "serialization")]
+#[macro_use]
+pub extern crate serde;
+
 pub extern crate lyon_path as path;
 
 pub mod aabb;
@@ -27,6 +31,10 @@ pub mod rect;
 pub mod rounded_polygon;
 pub mod walk;
 pub mod winding;
+pub mod offset;
+pub mod stroke;
+#[cfg(test)]
+mod offset_tests;
 
 pub use crate::path::geom;
 pub use crate::path::math;
