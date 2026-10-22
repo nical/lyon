@@ -20,5 +20,7 @@ A collection of various vector path manipulation algorithms.
  - Path hit testing
  - Path ray casting
  - walking along a path
+ - Path offsetting
+ - Stroke-to-fill conversion
 
 `lyon_algorithms` can be used as a standalone crate or as part of [lyon](https://docs.rs/lyon/) via the `lyon::algorithms` module.
