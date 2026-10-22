@@ -6,6 +6,7 @@ members = [
     "crates/algorithms",
     "crates/geom",
     "crates/extra",
+    "crates/offset",
     "cli",
     "examples/wgpu",
     "examples/wgpu_svg",

@@ -1204,6 +1204,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lyon_offset"
+version = "0.1.0"
+dependencies = [
+ "lyon_geom",
+ "lyon_path",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "lyon_path"
 version = "1.0.19"
 dependencies = [
