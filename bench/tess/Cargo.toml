@@ -3,6 +3,7 @@ name = "tess_bench"
 version = "0.0.1"
 authors = ["Nicolas Silva <nical@fastmail.com>"]
 workspace = "../.."
+edition = "2024"
 
 [[bin]]
 name = "tess_bench"

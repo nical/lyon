@@ -8,7 +8,7 @@ documentation = "https://docs.rs/lyon_tessellation/"
 keywords = ["2d", "graphics", "tessellation", "svg"]
 license = "MIT OR Apache-2.0"
 workspace = "../.."
-edition = "2018"
+edition = "2024"
 
 [lib]
 name = "lyon_tessellation"
