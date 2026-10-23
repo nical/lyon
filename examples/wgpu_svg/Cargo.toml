@@ -4,7 +4,7 @@ description = "A simple svg renderer based on resvg"
 version = "0.1.0"
 authors = ["Roland Kovacs <zen3ger@gmail.com>"]
 workspace = "../.."
-edition = "2018"
+edition = "2024"
 
 [[bin]]
 name = "wgpu_svg"

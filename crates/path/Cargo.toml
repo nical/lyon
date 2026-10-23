@@ -7,7 +7,7 @@ repository = "https://github.com/nical/lyon"
 documentation = "https://docs.rs/lyon_path/"
 license = "MIT OR Apache-2.0"
 workspace = "../.."
-edition = "2018"
+edition = "2024"
 
 [lib]
 name = "lyon_path"
