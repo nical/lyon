@@ -511,6 +511,7 @@ impl GfxState {
                     power_preference: wgpu::PowerPreference::LowPower,
                     compatible_surface: Some(&surface),
                     force_fallback_adapter: false,
+                    apply_limit_buckets: false,
                 })
                 .await
                 .unwrap();
@@ -522,6 +523,7 @@ impl GfxState {
                         label: None,
                         required_features: wgpu::Features::empty(),
                         required_limits: wgpu::Limits::default(),
+                        experimental_features: wgpu::ExperimentalFeatures::disabled(),
                         memory_hints:wgpu::MemoryHints::MemoryUsage,
                         trace: wgpu::Trace::Off,
                     },
@@ -533,6 +535,7 @@ impl GfxState {
         let surface_desc = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8Unorm,
+            color_space: wgpu::SurfaceColorSpace::Auto,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::AutoVsync,
@@ -646,8 +649,8 @@ impl GfxState {
 
         let depth_stencil_state = Some(wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Greater,
+            depth_write_enabled: Some(true),
+            depth_compare: Some(wgpu::CompareFunction::Greater),
             stencil: wgpu::StencilState {
                 front: wgpu::StencilFaceState::IGNORE,
                 back: wgpu::StencilFaceState::IGNORE,
@@ -658,8 +661,8 @@ impl GfxState {
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&bind_group_layout)],
+            immediate_size: 0,
             label: Some("pl_layout"),
         });
 
@@ -669,11 +672,11 @@ impl GfxState {
             vertex: wgpu::VertexState {
                 module: geo_vs_module,
                 entry_point: Some("main"),
-                buffers: &[wgpu::VertexBufferLayout {
+                buffers: &[Some(wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<GpuVertex>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: GpuVertex::desc(),
-                }],
+                })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -701,7 +704,7 @@ impl GfxState {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         };
 
@@ -717,7 +720,7 @@ impl GfxState {
             vertex: wgpu::VertexState {
                 module: bg_vs_module,
                 entry_point: Some("main"),
-                buffers: &[wgpu::VertexBufferLayout {
+                buffers: &[Some(wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Point>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &[wgpu::VertexAttribute {
@@ -725,7 +728,7 @@ impl GfxState {
                         format: wgpu::VertexFormat::Float32x2,
                         shader_location: 0,
                     }],
-                }],
+                })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -753,7 +756,7 @@ impl GfxState {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -788,9 +791,10 @@ impl GfxState {
         state.scene.render = false;
 
         let frame = match self.surface.get_current_texture() {
-            Ok(texture) => texture,
-            Err(e) => {
-                println!("Swap-chain error: {e:?}");
+            wgpu::CurrentSurfaceTexture::Success(texture)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => texture,
+            other => {
+                println!("Swap-chain error: {other:?}");
                 return;
             }
         };
@@ -877,6 +881,7 @@ impl GfxState {
             let color_attachment = if let Some(msaa_target) = &self.multisampled_render_target {
                 wgpu::RenderPassColorAttachment {
                     view: msaa_target,
+                    depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: wgpu::StoreOp::Store,
@@ -886,6 +891,7 @@ impl GfxState {
             } else {
                 wgpu::RenderPassColorAttachment {
                     view: &frame_view,
+                    depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: wgpu::StoreOp::Store,
@@ -903,13 +909,12 @@ impl GfxState {
                         load: wgpu::LoadOp::Clear(0.0),
                         store: wgpu::StoreOp::Store,
                     }),
-                    stencil_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(0),
-                        store: wgpu::StoreOp::Store,
-                    }),
+                    // The depth texture is `Depth32Float`, which has no stencil aspect.
+                    stencil_ops: None,
                 }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
 
             pass.set_pipeline(&self.geo_pipeline);
@@ -932,7 +937,7 @@ impl GfxState {
         }
 
         self.queue.submit(Some(encoder.finish()));
-        frame.present();
+        self.queue.present(frame);
 
         let now = Instant::now();
         state.frame_count += 1;

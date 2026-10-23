@@ -248,6 +248,7 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
         power_preference: wgpu::PowerPreference::LowPower,
         compatible_surface: Some(&surface),
         force_fallback_adapter: false,
+        apply_limit_buckets: false,
     }))
     .unwrap();
 
@@ -257,6 +258,7 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
             label: None,
             required_features: wgpu::Features::default() | wgpu::Features::POLYGON_MODE_LINE,
             required_limits: wgpu::Limits::default(),
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
             memory_hints: wgpu::MemoryHints::MemoryUsage,
             trace: wgpu::Trace::Off,
         },
@@ -268,6 +270,7 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
     let surface_desc = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
+        color_space: wgpu::SurfaceColorSpace::Auto,
         width: size.width,
         height: size.height,
         present_mode: wgpu::PresentMode::AutoVsync,
@@ -376,8 +379,8 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
     });
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(&bind_group_layout)],
+        immediate_size: 0,
         label: None,
     });
 
@@ -387,7 +390,7 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
         vertex: wgpu::VertexState {
             module: &vs_module,
             entry_point: Some("main"),
-            buffers: &[wgpu::VertexBufferLayout {
+            buffers: &[Some(wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<GpuVertex>() as u64,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &[
@@ -402,7 +405,7 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
                         shader_location: 1,
                     },
                 ],
-            }],
+            })],
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         },
         fragment: Some(wgpu::FragmentState {
@@ -430,7 +433,7 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
             mask: !0,
             alpha_to_coverage_enabled: false,
         },
-        multiview: None,
+        multiview_mask: None,
         cache: None,
     };
 
@@ -495,9 +498,10 @@ fn render(gfx: &mut GfxState) {
     }
 
     let frame = match gfx.surface.get_current_texture() {
-        Ok(frame) => frame,
-        Err(e) => {
-            println!("Swap-chain error: {e:?}");
+        wgpu::CurrentSurfaceTexture::Success(frame)
+        | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
+        other => {
+            println!("Swap-chain error: {other:?}");
             return;
         }
     };
@@ -526,6 +530,7 @@ fn render(gfx: &mut GfxState) {
             label: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: gfx.msaa_texture.as_ref().unwrap_or(&frame_view),
+                depth_slice: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                     store: wgpu::StoreOp::Store,
@@ -539,6 +544,7 @@ fn render(gfx: &mut GfxState) {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         if gfx.scene.wireframe {
@@ -554,7 +560,7 @@ fn render(gfx: &mut GfxState) {
     }
 
     gfx.queue.submit(Some(encoder.finish()));
-    frame.present();
+    gfx.queue.present(frame);
 }
 
 fn collect_geom(
