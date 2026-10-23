@@ -430,6 +430,7 @@ impl App {
             power_preference: wgpu::PowerPreference::LowPower,
             compatible_surface: Some(&surface),
             force_fallback_adapter: false,
+            apply_limit_buckets: false,
         }))
         .unwrap();
 
@@ -439,6 +440,7 @@ impl App {
                 label: None,
                 required_features: wgpu::Features::default(),
                 required_limits: wgpu::Limits::default(),
+                experimental_features: wgpu::ExperimentalFeatures::disabled(),
                 memory_hints: wgpu::MemoryHints::MemoryUsage,
                 trace: wgpu::Trace::Off,
             },
@@ -544,15 +546,15 @@ impl App {
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&bind_group_layout)],
+            immediate_size: 0,
             label: None,
         });
 
         let depth_stencil_state = Some(wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Greater,
+            depth_write_enabled: Some(true),
+            depth_compare: Some(wgpu::CompareFunction::Greater),
             stencil: wgpu::StencilState {
                 front: wgpu::StencilFaceState::IGNORE,
                 back: wgpu::StencilFaceState::IGNORE,
@@ -568,7 +570,7 @@ impl App {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[wgpu::VertexBufferLayout {
+                buffers: &[Some(wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<GpuVertex>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &[
@@ -588,7 +590,7 @@ impl App {
                             shader_location: 2,
                         },
                     ],
-                }],
+                })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -616,7 +618,7 @@ impl App {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         };
 
@@ -638,7 +640,7 @@ impl App {
             vertex: wgpu::VertexState {
                 module: bg_vs_module,
                 entry_point: Some("main"),
-                buffers: &[wgpu::VertexBufferLayout {
+                buffers: &[Some(wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Point>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &[wgpu::VertexAttribute {
@@ -646,7 +648,7 @@ impl App {
                         format: wgpu::VertexFormat::Float32x2,
                         shader_location: 0,
                     }],
-                }],
+                })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -674,7 +676,7 @@ impl App {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -683,6 +685,7 @@ impl App {
         let surface_desc = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8Unorm,
+            color_space: wgpu::SurfaceColorSpace::Auto,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::AutoVsync,
@@ -763,9 +766,10 @@ impl App {
         }
 
         let frame = match self.surface.get_current_texture() {
-            Ok(frame) => frame,
-            Err(e) => {
-                println!("Swap-chain error: {e:?}");
+            wgpu::CurrentSurfaceTexture::Success(frame)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
+            other => {
+                println!("Swap-chain error: {other:?}");
                 return;
             }
         };
@@ -817,6 +821,7 @@ impl App {
             let color_attachment = if let Some(msaa_target) = &self.multisampled_render_target {
                 wgpu::RenderPassColorAttachment {
                     view: msaa_target,
+                    depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: wgpu::StoreOp::Store,
@@ -826,6 +831,7 @@ impl App {
             } else {
                 wgpu::RenderPassColorAttachment {
                     view: &frame_view,
+                    depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: wgpu::StoreOp::Store,
@@ -843,13 +849,12 @@ impl App {
                         load: wgpu::LoadOp::Clear(0.0),
                         store: wgpu::StoreOp::Store,
                     }),
-                    stencil_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(0),
-                        store: wgpu::StoreOp::Store,
-                    }),
+                    // The depth texture is `Depth32Float`, which has no stencil aspect.
+                    stencil_ops: None,
                 }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
 
             let index_range = if self.scene.show_wireframe {
@@ -878,7 +883,7 @@ impl App {
         }
 
         self.queue.submit(Some(encoder.finish()));
-        frame.present();
+        self.queue.present(frame);
 
         self.frame_count += 1.0;
         self.scene.render = false;
