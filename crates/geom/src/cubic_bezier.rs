@@ -821,8 +821,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
         // There are two Real solutions for the equation
         let discriminant_sqrt = discriminant.sqrt();
 
-        let mut first_extremum = (-b - discriminant_sqrt) / (S::TWO * a);
-        let mut second_extremum = (-b + discriminant_sqrt) / (S::TWO * a);
+        // q / a and c / q are the two roots, without subtracting values that
+        // are close to each other when a is small compared to b.
+        let q = -(b + b.signum() * discriminant_sqrt) * S::HALF;
+        let mut first_extremum = q / a;
+        let mut second_extremum = c / q;
         if first_extremum > second_extremum {
             core::mem::swap(&mut first_extremum, &mut second_extremum);
         }
@@ -1771,6 +1774,21 @@ fn y_maximum_t_for_simple_cubic_segment() {
     let actual_y_maximum = a.y_maximum_t();
 
     assert_eq!(expected_y_maximum, actual_y_maximum)
+}
+
+#[test]
+fn y_maximum_t_with_nearly_linear_derivative() {
+    // The derivative's leading coefficient is tiny compared to the other two,
+    // so its roots must be computed without subtracting close values.
+    let a: CubicBezierSegment<f32> = CubicBezierSegment {
+        from: Point::new(0.0, 0.001),
+        ctrl1: Point::new(0.0, 3000.0),
+        ctrl2: Point::new(0.0, 4000.0),
+        to: Point::new(0.0, 3000.0),
+    };
+
+    assert!((a.y_maximum_t() - 0.75).abs() < 1e-4, "{}", a.y_maximum_t());
+    assert!(a.bounding_box().max.y > 3374.9, "{:?}", a.bounding_box());
 }
 
 #[test]
